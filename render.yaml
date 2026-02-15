@@ -1,0 +1,24 @@
+
+services:
+  - type: web
+    name: instaboost-pro
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node render.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://instaboost_user:uX1YzKjiOETNhyYj@cluster0.tolxjiz.mongodb.net/instaboost?retryWrites=true&w=majority&appName=Cluster0
+      - key: TELEGRAM_BOT_TOKEN
+        value: 7275717734:AAE6bq0Mdypn_wQL6F1wpphzEtLAco3_B3Y
+      - key: TELEGRAM_CHAT_ID
+        value: 6881713177
+      - key: SESSION_SECRET
+        value: YJ!*NpP1@l|R5Iy)rG<y"-XyDf}#xn
+      - key: JWT_SECRET
+        value: YJ!*NpP1@l|R5Iy)rG<y"-XyDf}#xn
+      - key: PORT
+        value: 10000
+    healthCheckPath: /api/health

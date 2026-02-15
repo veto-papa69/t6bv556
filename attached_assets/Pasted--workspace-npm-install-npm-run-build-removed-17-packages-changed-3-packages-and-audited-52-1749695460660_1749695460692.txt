@@ -1,0 +1,128 @@
+~/workspace$ npm install && npm run build
+
+removed 17 packages, changed 3 packages, and audited 522 packages in 6s
+
+69 packages are looking for funding
+  run `npm fund` for details
+
+7 vulnerabilities (1 low, 6 moderate)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.4.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.4.1
+npm notice To update run: npm install -g npm@11.4.1
+npm notice
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v5.4.19 building for production...
+transforming (1) index.html[replit-cartographer] Error processing /home/runner/workspace/client/src/main.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/App.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/referrals.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/services-discount.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/toaster.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/navbar.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/ui/tooltip.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/home.tsx: SyntaxError: Identifier 'handleDiscountReferral' has already been declared. (86:8)
+    at constructor (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:363:19)
+    at TypeScriptParserMixin.raise (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:6609:19)
+    at TypeScriptScopeHandler.checkRedeclarationInScope (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:1626:19)
+    at TypeScriptScopeHandler.declareName (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:1592:12)
+    at TypeScriptScopeHandler.declareName (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:4892:11)
+    at TypeScriptParserMixin.declareNameFromIdentifier (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:7538:16)
+    at TypeScriptParserMixin.checkIdentifier (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:7534:12)
+    at TypeScriptParserMixin.checkLVal (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:7475:12)
+    at TypeScriptParserMixin.parseVarId (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:13327:10)
+    at TypeScriptParserMixin.parseVarId (/home/runner/workspace/node_modules/@babel/parser/lib/index.js:9709:11) {
+  code: 'BABEL_PARSER_SYNTAX_ERROR',
+  reasonCode: 'VarRedeclaration',
+  loc: Position { line: 86, column: 8, index: 2486 },
+  pos: 2486,
+  syntaxPlugin: undefined
+}
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/services.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/components/footer.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/wallet.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/add-funds.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/orders.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/faq.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/terms.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+[replit-cartographer] Error processing /home/runner/workspace/client/src/pages/privacy.tsx: TypeError: traverse is not a function
+    at Object.transform (file:///home/runner/workspace/node_modules/@replit/vite-plugin-cartographer/dist/index.mjs:53:9)
+    at async transform (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19640:16)
+    at async ModuleLoader.addModuleSource (file:///home/runner/workspace/node_modules/rollup/dist/es/shared/node-entry.js:19856:36)
+✓ 6 modules transformed.
+x Build failed in 1.37s
+error during build:
+[vite:esbuild] Transform failed with 1 error:
+/home/runner/workspace/client/src/pages/home.tsx:86:8: ERROR: The symbol "handleDiscountReferral" has already been declared
+file: /home/runner/workspace/client/src/pages/home.tsx:86:8
+
+The symbol "handleDiscountReferral" has already been declared
+84 |    };
+85 |  
+86 |    const handleDiscountReferral = () => {
+   |          ^
+87 |      if (!isAuthenticated) {
+88 |        toast({
+
+    at failureErrorWithLog (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:1472:15)
+    at /home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:755:50
+    at responseCallbacks.<computed> (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:622:9)
+    at handleIncomingPacket (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:677:12)
+    at Socket.readFromStdout (/home/runner/workspace/node_modules/vite/node_modules/esbuild/lib/main.js:600:7)
+    at Socket.emit (node:events:518:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:191:23)

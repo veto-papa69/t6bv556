@@ -1,0 +1,80 @@
+🔥 **PROJECT CONTEXT:**  
+I'm working on a React + TypeScript + Tailwind CSS web app with a Node.js backend. The existing website allows users to log in and access service-based features (like Instagram-related tools). I want to implement a gamified referral system to boost engagement and retention.
+
+---
+
+✅ **FEATURE REQUEST: "Referral Campaign + Reward Flow"**
+
+---
+
+### 1. 🎯 Homepage CTA Button
+
+- Add a new **highly animated CTA button** on the homepage.
+- Text: `Get 50% Flat Discount`
+- Style: premium button using **Hope UI–like color scheme** (gradient, glowing, hover animation).
+- On click, redirect to: `/referrals`.
+
+---
+
+### 2. 🧑‍🤝‍🧑 Referral Page (`/referrals`)
+
+- If the user is logged in:
+  - Generate and display a **unique referral code** like `REF-USERID-RANDOM`.
+  - Show:  
+    `People who signed up using your code: X/5`
+- When 5 users have signed up with that code:
+  - Display a **"Claim Your Reward"** button (with gift-style animation/theme).
+  - On click → redirect to `/reward-services`.
+
+---
+
+### 3. 🔐 Login Page Update
+
+- Add a new input field:  
+  `Referral Code (optional)`
+- On login/signup:
+  - If the referral code is valid and hasn't been used by the user before:
+    - Store the referral relationship.
+    - Count it toward the referrer's progress.
+
+---
+
+### 4. 🛍️ Reward Services Page (`/reward-services`)
+
+- Clone of existing `/services` page but:
+  - Every service has a **"50% OFF"** badge.
+  - All prices are reduced to **half** of the normal price.
+- Same ordering flow as current `/services`.
+
+---
+
+### 5. ⚙️ Logic Notes
+
+- Referral codes are **one-time use per referred user**.
+- Backend should:
+  - Track total successful referrals per user.
+  - Allow access to `/reward-services` **only after 5 successful referrals**.
+- Data schema idea:  
+  `Referrals { referrerId, referredUserId, code, status }`
+
+---
+
+### 📦 File Locations for Integration
+
+- **Homepage UI:** `client/src/pages/home.tsx`
+- **Referral Page:** New → `client/src/pages/referrals.tsx`
+- **Reward Services Page:** Duplicate `services.tsx` → `reward-services.tsx`
+- **Button Component:** Extend `client/src/components/ui/button.tsx`
+- **Auth Logic:** Hook into `use-auth.ts`
+- **Backend Endpoints:** Add to `server/routes.ts`  
+- **Database Logic:** Extend `server/db.ts` or `shared/schema.ts`
+
+---
+
+🔄 Optional Enhancements:
+- Add reward **tiers** (5, 10, 25 users = extra discounts/badges).
+- Show a **progress bar** on referral page for gamification.
+
+---
+
+Let me know if you want the **complete frontend + backend code** for this flow. Just say: `yes code`.
