@@ -91,7 +91,7 @@ export default function AddFunds() {
             <h2 className="text-2xl font-bold text-gold mb-6">Scan QR Code to Pay</h2>
             <div className="inline-block p-4 bg-white rounded-xl">
               <img 
-                src="https://files.catbox.moe/6vf8fb.jpg" 
+                src="https://files.catbox.moe/8ljrzr.png" 
                 alt="UPI QR Code for payment" 
                 className="w-48 h-48 object-contain"
               />
