@@ -987,45 +987,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Alias for compatibility - FIXED: /api/my-referrals was missing causing blank page
-  app.get("/api/my-referrals", async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
-      const user = await storage.getUser(req.session.userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      let referralRecord = await storage.getReferralByUserId(user.id);
-      let referralCode = '';
-      if (!referralRecord) {
-        referralCode = `REF-${user.uid}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        try {
-          referralRecord = await storage.createReferral({
-            userId: user.id,
-            referralCode: referralCode,
-            isCompleted: false
-          });
-        } catch (e) { console.error(e); }
-      } else {
-        referralCode = referralRecord.referralCode;
-      }
-      const referralCount = await storage.getReferralCount(user.id);
-      res.json({
-        referralCode,
-        referralCount,
-        isEligibleForDiscount: referralCount >= 5,
-        hasClaimed: user.hasClaimedDiscount || false,
-        hasClaimedDiscount: user.hasClaimedDiscount || false,
-      });
-    } catch (error) {
-      console.error("Get my-referrals alias error:", error);
-      res.status(500).json({ error: "Failed" });
-    }
-  });
-
   app.get("/api/referrals/discount-access", async (req, res) => {
     if (!req.session.userId) {
       return res.status(401).json({ error: "Not authenticated" });

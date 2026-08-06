@@ -18,29 +18,32 @@ interface LoginData {
 export function useAuth() {
   const { data: user, isLoading, error } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
-    queryFn: async () => {
-      try {
-        const res = await fetch("/api/auth/user", { credentials: "include" });
-        if (res.status === 401) return null;
-        if (!res.ok) throw new Error("Failed");
-        return res.json();
-      } catch {
-        return null;
-      }
+    retry: (failureCount, error: any) => {
+      // Don't retry on 401 (not authenticated)
+      if (error?.status === 401) return false;
+      return failureCount < 3;
     },
-    retry: false,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
-  return { user, isLoading, error, isAuthenticated: !!user };
+
+  return {
+    user,
+    isLoading,
+    error,
+    isAuthenticated: !!user,
+  };
 }
 
 export function useLogin() {
   const queryClient = useQueryClient();
+  
   return useMutation({
     mutationFn: async (data: LoginData) => {
+      // Add referral code if available
       const referralCode = sessionStorage.getItem('referralCode');
       const loginData = referralCode ? { ...data, referralCode } : data;
+      
       const response = await apiRequest("POST", "/api/auth/login", loginData);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Login failed' }));
@@ -49,6 +52,7 @@ export function useLogin() {
       return response.json();
     },
     onSuccess: () => {
+      // Clear referral code after successful login
       sessionStorage.removeItem('referralCode');
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     },
@@ -57,6 +61,7 @@ export function useLogin() {
 
 export function useLogout() {
   const queryClient = useQueryClient();
+  
   return useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/auth/logout");
@@ -64,13 +69,13 @@ export function useLogout() {
     },
     onSuccess: () => {
       queryClient.clear();
-      window.location.href = "/";
     },
   });
 }
 
 export function useClaimBonus() {
   const queryClient = useQueryClient();
+  
   return useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/bonus/claim");

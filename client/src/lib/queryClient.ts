@@ -7,7 +7,10 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-const BASE_URL = ""; // Fixed: always use relative URL to avoid CORS and Failed to fetch
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://instaboostpro-extra-features.onrender.com"
+    : "";
 
 export async function apiRequest(
   method: string,

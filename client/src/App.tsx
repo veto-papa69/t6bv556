@@ -9,7 +9,6 @@ import Home from "@/pages/home";
 import Services from "@/pages/services";
 import Referrals from "@/pages/referrals";
 import RewardServices from "@/pages/reward-services";
-import ServicesDiscount from "@/pages/services-discount";
 import Wallet from "@/pages/wallet";
 import AddFunds from "@/pages/add-funds";
 import Orders from "@/pages/orders";
@@ -18,26 +17,28 @@ import FAQ from "@/pages/faq";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import NotFound from "@/pages/not-found";
-import { Suspense } from "react";
+import RefundPolicy from "@/pages/refund";
+import ShippingPolicy from "@/pages/shipping";
+import Contact from "@/pages/contact";
+import About from "@/pages/about";
+import { lazy } from "react";
 
 function Router() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--main-bg)', color: 'var(--gold)' }}><div className="text-xl animate-pulse">Loading...</div></div>}>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/services" component={Services} />
-        <Route path="/services-discount" component={ServicesDiscount} />
-        <Route path="/wallet" component={Wallet} />
-        <Route path="/add-funds" component={AddFunds} />
-        <Route path="/orders" component={Orders} />
-        <Route path="/referrals" component={Referrals} />
-        <Route path="/reward-services" component={RewardServices} />
-        <Route path="/faq" component={FAQ} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/privacy" component={Privacy} />
-        <Route component={NotFound} />
-      </Switch>
-    </Suspense>
+    <Switch>
+      <Route path="/" component={Home} />
+      <Route path="/services" component={Services} />
+      <Route path="/services-discount" component={lazy(() => import("./pages/services-discount"))} />
+      <Route path="/wallet" component={Wallet} />
+      <Route path="/add-funds" component={AddFunds} />
+      <Route path="/orders" component={Orders} />
+      <Route path="/referrals" component={Referrals} />
+            <Route path="/reward-services" component={RewardServices} />
+      <Route path="/faq" component={FAQ} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 

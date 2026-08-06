@@ -5,6 +5,7 @@ import { useAuth, useClaimBonus } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/components/auth-modal";
+import { FestivalBanner } from "@/components/festival-banner";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -96,19 +97,7 @@ export default function Home() {
 
   return (
     <>
-      {/* Sticky Announcement Banner */}
-      <div className="fixed top-20 left-0 right-0 z-40 announcement-banner">
-        <div className="relative overflow-hidden backdrop-blur-md bg-gradient-to-r from-red-600/20 via-red-500/20 to-red-700/20 border-b border-red-400/30 shadow-lg announcement-glow">
-          <div className="flex whitespace-nowrap animate-marquee py-3">
-            <span className="text-sm font-bold text-red-100">
-              🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉
-            </span>
-            <span className="text-sm font-bold text-red-100 ml-4">
-              🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉
-            </span>
-          </div>
-        </div>
-      </div>
+      <FestivalBanner />
 
       <div className="pt-32 pb-16">
         {/* Hero Section */}
@@ -295,17 +284,13 @@ export default function Home() {
             Join thousands of satisfied customers who have grown their Instagram presence with our premium services.
           </p>
 
-          {/* Special Discount CTA - FIXED */}
+          {/* Special Discount CTA */}
           <div className="mb-8">
             <Button 
               size="lg" 
               className="text-lg px-8 py-4 bg-gradient-to-r from-green-400 to-blue-500 hover:from-green-500 hover:to-blue-600 text-white font-bold animate-pulse hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
               onClick={() => {
-                if (!isAuthenticated) {
-                  setIsAuthModalOpen(true);
-                } else {
-                  setLocation("/referrals");
-                }
+                setLocation("/login?ref=campaign");
               }}
             >
               <i className="fas fa-gift mr-2"></i>

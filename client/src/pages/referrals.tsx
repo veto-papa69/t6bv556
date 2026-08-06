@@ -11,43 +11,49 @@ interface ReferralData {
   referralCount: number;
   isEligibleForDiscount: boolean;
   hasClaimedDiscount: boolean;
-  referralLink?: string;
 }
 
 export default function Referrals() {
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
+  useEffect(() => {
+  fetch("/api/referrals", {
+    credentials: "include",
+  })
+    .then(async (r) => {
+      console.log("STATUS:", r.status);
+      console.log("BODY:", await r.text());
+    })
+    .catch(console.error);
+}, []);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const { data: referralData, isLoading, error, refetch } = useQuery<ReferralData>({
-    queryKey: ['/api/referrals/my'],
+  const { data: referralData, isLoading, error, refetch } = useQuery({
+    queryKey: ['referrals'],
     queryFn: async () => {
       const response = await fetch('/api/referrals/my', {
         credentials: 'include'
       });
       if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || 'Failed to fetch referral data');
+        throw new Error('Failed to fetch referral data');
       }
       const data = await response.json();
       console.log('📋 Referral data received:', data);
       return data;
     },
-    enabled: !!user && isAuthenticated,
-    retry: 1,
+    enabled: !!user,
+    retry: 3,
+    retryDelay: 1000
   });
 
   const claimRewardMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch("/api/referrals/claim-reward", {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
       });
       if (!response.ok) {
-        const err = await response.json().catch(()=>({error:'Failed'}));
-        throw new Error(err.error || "Failed to claim reward");
+        throw new Error("Failed to claim reward");
       }
       return response.json();
     },
@@ -58,16 +64,16 @@ export default function Referrals() {
       });
       refetch();
     },
-    onError: (e:any) => {
+    onError: () => {
       toast({
         title: "Error",
-        description: e.message || "Failed to claim reward. Please try again.",
+        description: "Failed to claim reward. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Show auth modal if not authenticated
+  // Show auth modal immediately if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen pt-28 pb-8" style={{ backgroundColor: 'var(--main-bg)' }}>
@@ -94,39 +100,8 @@ export default function Referrals() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen pt-28 pb-8 flex items-center justify-center" style={{ backgroundColor: 'var(--main-bg)' }}>
-        <div className="text-center">
-          <i className="fas fa-spinner fa-spin text-gold text-4xl mb-4"></i>
-          <p className="text-cream/70">Loading referral data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen pt-28 pb-8" style={{ backgroundColor: 'var(--main-bg)' }}>
-        <div className="max-w-3xl mx-auto px-4 text-center py-20">
-          <h2 className="text-2xl font-bold text-red-400 mb-4">Failed to load referrals</h2>
-          <p className="text-cream/70 mb-6">{(error as any).message}</p>
-          <Button onClick={()=>refetch()}>Retry</Button>
-        </div>
-      </div>
-    );
-  }
-
   const handleClaimReward = () => {
     claimRewardMutation.mutate();
-  };
-
-  const copyLink = () => {
-    const link = referralData?.referralLink || `${window.location.origin}/?ref=${referralData?.referralCode}`;
-    navigator.clipboard.writeText(link);
-    setCopiedLink(true);
-    toast({ title: "Copied!", description: "Referral link copied to clipboard" });
-    setTimeout(()=>setCopiedLink(false), 2000);
   };
 
   return (
@@ -179,74 +154,231 @@ export default function Referrals() {
               </div>
               <div className="text-lg text-cream font-semibold mb-2">Successful Referrals</div>
               <div className="text-gold font-medium text-sm">
-                {referralData?.referralCount || 0} / 5 completed
+                {(referralData?.referralCount || 0) * 20}% Progress to Reward
               </div>
             </div>
 
-            <div className="bg-charcoal border-2 border-gold/30 rounded-2xl p-6 text-center transform hover:scale-105 transition-all duration-300 shadow-xl">
+            <div className="bg-charcoal border-2 border-green-400/30 rounded-2xl p-6 text-center transform hover:scale-105 transition-all duration-300 shadow-xl">
               <div className="flex items-center justify-center mb-4">
-                <i className="fas fa-percentage text-3xl text-gold mr-3"></i>
-                <span className="text-4xl font-bold text-gold">50%</span>
+                <i className="fas fa-target text-3xl text-green-400 mr-3"></i>
+                <span className="text-4xl font-bold text-green-400">
+                  {5 - (referralData?.referralCount || 0) > 0 ? 5 - (referralData?.referralCount || 0) : 0}
+                </span>
+              </div>
+              <div className="text-lg text-cream font-semibold mb-2">Referrals Needed</div>
+              <div className="text-green-400 font-medium text-sm">
+                {(referralData?.referralCount || 0) >= 5 ? "🎯 Goal Achieved!" : "Keep Going!"}
+              </div>
+            </div>
+
+            <div className="bg-charcoal border-2 border-purple-400/30 rounded-2xl p-6 text-center transform hover:scale-105 transition-all duration-300 shadow-xl">
+              <div className="flex items-center justify-center mb-4">
+                <i className="fas fa-percentage text-3xl text-purple-400 mr-3"></i>
+                <span className="text-4xl font-bold text-purple-400">50</span>
               </div>
               <div className="text-lg text-cream font-semibold mb-2">Discount Reward</div>
-              <div className="text-gold font-medium text-sm">
-                Lifetime discount unlocked at 5 refs
-              </div>
-            </div>
-
-            <div className="bg-charcoal border-2 border-gold/30 rounded-2xl p-6 text-center transform hover:scale-105 transition-all duration-300 shadow-xl">
-              <div className="flex items-center justify-center mb-4">
-                <i className="fas fa-trophy text-3xl text-gold mr-3"></i>
-                <span className="text-2xl font-bold text-gold">{referralData?.hasClaimedDiscount ? "Claimed" : referralData?.isEligibleForDiscount ? "Ready!" : "Pending"}</span>
-              </div>
-              <div className="text-lg text-cream font-semibold mb-2">Reward Status</div>
-              <div className="text-gold font-medium text-sm">
-                {referralData?.hasClaimedDiscount ? "Enjoy your discount!" : referralData?.isEligibleForDiscount ? "Claim now!" : "Keep sharing!"}
+              <div className="text-purple-400 font-medium text-sm">
+                {(referralData?.referralCount || 0) >= 5 ? "🎁 Unlocked!" : "So Close!"}
               </div>
             </div>
           </div>
 
-          {/* Referral Link Section */}
-          <div className="bg-charcoal border-2 border-gold/30 rounded-3xl p-8 mb-16">
-            <h3 className="text-2xl font-bold text-gold mb-6 text-center">
-              <i className="fas fa-link mr-3"></i>Your Referral Link
-            </h3>
-            
-            <div className="bg-main-bg border border-gold/20 rounded-xl p-4 mb-6">
-              <div className="flex flex-col md:flex-row gap-4 items-center">
-                <div className="flex-1 bg-charcoal rounded-lg p-3 border border-gold/10 w-full overflow-hidden">
-                  <p className="text-cream font-mono text-sm truncate">
-                    {referralData?.referralLink || `${typeof window !== 'undefined' ? window.location.origin : ''}/?ref=${referralData?.referralCode}`}
-                  </p>
+          {/* Progress Bar Section */}
+          <div className="bg-charcoal border border-gold/20 rounded-2xl p-10 mb-16 shadow-xl">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-3xl font-bold text-gold flex items-center">
+                <i className="fas fa-chart-line mr-3"></i>
+                Your Referral Journey
+              </h3>
+              <span className="text-cream text-2xl font-bold bg-charcoal-dark px-6 py-3 rounded-full border border-gold/20">
+                {referralData?.referralCount || 0}/5
+              </span>
+            </div>
+
+            {/* Enhanced Progress Bar */}
+            <div className="relative mb-20">
+              <div className="w-full bg-charcoal-dark rounded-full h-6 shadow-inner border border-gray-600">
+                <div 
+                  className="bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-6 rounded-full transition-all duration-1000 ease-out relative overflow-hidden shadow-lg"
+                  style={{ width: `${((referralData?.referralCount || 0) / 5) * 100}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent animate-pulse"></div>
                 </div>
-                <Button onClick={copyLink} className="btn-primary whitespace-nowrap">
-                  <i className={`fas ${copiedLink ? 'fa-check' : 'fa-copy'} mr-2`}></i>
-                  {copiedLink ? 'Copied!' : 'Copy Link'}
+              </div>
+
+              {/* Milestone Markers */}
+              <div className="relative mt-4">
+                <div className="flex justify-between items-start">
+                  {[1, 2, 3, 4, 5].map((milestone) => (
+                    <div 
+                      key={milestone}
+                      className="flex flex-col items-center text-center"
+                      style={{ width: '20%' }}
+                    >
+                      {/* Circle */}
+                      <div 
+                        className={`flex items-center justify-center w-10 h-10 rounded-full border-3 transition-all duration-500 mb-3 ${
+                          (referralData?.referralCount || 0) >= milestone
+                            ? 'bg-green-500 border-green-300 text-white shadow-lg scale-110'
+                            : 'bg-charcoal-dark border-gray-500 text-gray-400'
+                        }`}
+                      >
+                        {(referralData?.referralCount || 0) >= milestone ? (
+                          <i className="fas fa-check text-sm"></i>
+                        ) : (
+                          <span className="text-xs font-bold">{milestone}</span>
+                        )}
+                      </div>
+
+                      {/* Milestone Labels */}
+                      <div className={`text-xs font-semibold px-2 leading-tight ${(referralData?.referralCount || 0) >= milestone ? 'text-green-400' : 'text-gray-500'}`}>
+                        {milestone === 1 && (
+                          <div className="flex flex-col items-center">
+                            <span>🎯</span>
+                            <span>First Friend</span>
+                          </div>
+                        )}
+                        {milestone === 2 && (
+                          <div className="flex flex-col items-center">
+                            <span>⚡</span>
+                            <span>Building</span>
+                            <span>Momentum</span>
+                          </div>
+                        )}
+                        {milestone === 3 && (
+                          <div className="flex flex-col items-center">
+                            <span>🔥</span>
+                            <span>Halfway</span>
+                            <span>Champion</span>
+                          </div>
+                        )}
+                        {milestone === 4 && (
+                          <div className="flex flex-col items-center">
+                            <span>💎</span>
+                            <span>Almost</span>
+                            <span>There</span>
+                          </div>
+                        )}
+                        {milestone === 5 && (
+                          <div className="flex flex-col items-center">
+                            <span>🏆</span>
+                            <span>Reward</span>
+                            <span>Master</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Motivational Messages */}
+            <div className="text-center mt-16">
+              {(referralData?.referralCount || 0) === 0 && (
+                <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-6">
+                  <p className="text-blue-300 text-xl font-medium">🚀 Ready to start? Share your link below and watch the magic happen!</p>
+                </div>
+              )}
+              {(referralData?.referralCount || 0) === 1 && (
+                <div className="bg-green-500/10 border border-green-400/30 rounded-xl p-6">
+                  <p className="text-green-300 text-xl font-medium">🎉 Excellent! You've got your first referral. Momentum is building!</p>
+                </div>
+              )}
+              {(referralData?.referralCount || 0) === 2 && (
+                <div className="bg-purple-500/10 border border-purple-400/30 rounded-xl p-6">
+                  <p className="text-purple-300 text-xl font-medium">⭐ You're on fire! Two down, three to go. Keep sharing!</p>
+                </div>
+              )}
+              {(referralData?.referralCount || 0) === 3 && (
+                <div className="bg-orange-500/10 border border-orange-400/30 rounded-xl p-6">
+                  <p className="text-orange-300 text-xl font-medium">🔥 Incredible progress! You're more than halfway to your reward!</p>
+                </div>
+              )}
+              {(referralData?.referralCount || 0) === 4 && (
+                <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-6">
+                  <p className="text-yellow-300 text-xl font-medium">💎 SO CLOSE! Just one more friend and you'll unlock 50% off forever!</p>
+                </div>
+              )}
+              {(referralData?.referralCount || 0) >= 5 && (
+                <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/50 rounded-xl p-6">
+                  <p className="text-green-300 text-xl font-bold">🏆 CONGRATULATIONS! You're now a Referral Master! 🏆</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Referral Code Section */}
+          <div className="bg-charcoal border border-gold/20 rounded-2xl p-10 mb-16 shadow-xl">
+            <h3 className="text-3xl font-bold text-gold mb-8 flex items-center">
+              <i className="fas fa-code mr-3"></i>
+              Your Referral Code
+            </h3>
+
+            {/* Show error state */}
+            {error && (
+              <div className="text-center mb-8">
+                <div className="p-6 rounded-lg border-2 border-red-500/50 bg-red-500/10">
+                  <p className="text-red-400 font-semibold">
+                    {error.message}
+                  </p>
+                  <Button 
+                    onClick={() => refetch()} 
+                    className="mt-4 bg-gold text-charcoal hover:bg-gold/90"
+                  >
+                    <i className="fas fa-redo mr-2"></i>
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Show loading state */}
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gold"></div>
+                <p className="text-cream/70 mt-4">Loading your referral code...</p>
+              </div>
+            ) : (
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-1 bg-charcoal-dark border border-gold/20 rounded-xl p-6">
+                  <div className="text-cream/70 text-lg mb-3 font-medium">
+                    Share this referral code:
+                  </div>
+                  <div className="text-cream font-mono text-2xl break-all bg-black/30 p-6 rounded-lg border text-center">
+                    <span className="select-all text-gold font-bold">
+                      {referralData?.referralCode || "REF-LOADING-CODE"}
+                    </span>
+                  </div>
+                  <div className="text-cream/50 text-sm mt-3 text-center">
+                    Friends can use this code during registration
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={() => {
+                    if (referralData?.referralCode) {
+                      navigator.clipboard.writeText(referralData.referralCode);
+                      setCopiedLink(true);
+                      toast({
+                        title: "Code Copied!",
+                        description: "Referral code copied to clipboard",
+                      });
+                      setTimeout(() => setCopiedLink(false), 3000);
+                    }
+                  }}
+                  className={`btn-primary text-xl px-10 py-6 self-start lg:self-center whitespace-nowrap transform hover:scale-105 transition-all duration-300 ${copiedLink ? 'bg-green-500 hover:bg-green-600' : ''}`}
+                  disabled={!referralData?.referralCode}
+                >
+                  <i className={`fas ${copiedLink ? 'fa-check' : 'fa-copy'} mr-3 text-xl`}></i>
+                  {copiedLink ? 'Copied!' : 'Copy Code'}
                 </Button>
               </div>
-              <div className="mt-4 text-center">
-                <p className="text-sm text-cream/60">Referral Code: <span className="font-bold text-gold font-mono">{referralData?.referralCode}</span></p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <a href={`https://wa.me/?text=${encodeURIComponent(`Join InstaBoost Pro and get amazing Instagram services! Use my referral: ${referralData?.referralLink || ''}`)}`} target="_blank" className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-xl text-center transition-colors">
-                <i className="fab fa-whatsapp text-xl mb-1"></i><div className="text-sm font-semibold">WhatsApp</div>
-              </a>
-              <a href={`https://t.me/share/url?url=${encodeURIComponent(referralData?.referralLink || '')}&text=${encodeURIComponent('Join InstaBoost Pro!')}`} target="_blank" className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-xl text-center transition-colors">
-                <i className="fab fa-telegram text-xl mb-1"></i><div className="text-sm font-semibold">Telegram</div>
-              </a>
-              <button onClick={copyLink} className="bg-gold hover:bg-yellow-600 text-black p-3 rounded-xl text-center transition-colors">
-                <i className="fas fa-copy text-xl mb-1"></i><div className="text-sm font-semibold">Copy</div>
-              </button>
-              <Link href="/reward-services" className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-xl text-center transition-colors block">
-                <i className="fas fa-gift text-xl mb-1"></i><div className="text-sm font-semibold">Rewards</div>
-              </Link>
-            </div>
+            )}
           </div>
 
-          {/* How It Works */}
-          <div className="bg-charcoal border border-gold/20 rounded-3xl p-10 mb-16">
+          {/* How it Works */}
+          <div className="bg-charcoal border border-gold/20 rounded-2xl p-10 mb-16 shadow-xl">
             <h3 className="text-3xl font-bold text-gold mb-10 text-center">
               <i className="fas fa-lightbulb mr-3"></i>
               How It Works
@@ -280,6 +412,7 @@ export default function Referrals() {
           {referralData?.isEligibleForDiscount && !referralData?.hasClaimedDiscount && (
             <div className="text-center mb-16">
               <div className="bg-gradient-to-r from-yellow-400/20 to-orange-500/20 border-2 border-yellow-400/50 rounded-3xl p-12 relative overflow-hidden">
+                {/* Celebration Effects */}
                 <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
                   <div className="absolute top-10 left-10 text-6xl animate-bounce">🎉</div>
                   <div className="absolute top-16 right-20 text-5xl animate-pulse">🎊</div>
