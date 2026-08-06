@@ -15,6 +15,7 @@ interface Order {
 }
 
 export default function Orders() {
+  usePaymentStatus();
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
   });

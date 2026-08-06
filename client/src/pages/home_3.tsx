@@ -96,22 +96,8 @@ export default function Home() {
 
 
   return (
-      <FestivalBanner />
-
     <>
-      {/* Sticky Announcement Banner */}
-      <div className="fixed top-20 left-0 right-0 z-40 announcement-banner">
-        <div className="relative overflow-hidden backdrop-blur-md bg-gradient-to-r from-red-600/20 via-red-500/20 to-red-700/20 border-b border-red-400/30 shadow-lg announcement-glow">
-          <div className="flex whitespace-nowrap animate-marquee py-3">
-            <span className="text-sm font-bold text-red-100">
-              🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉
-            </span>
-            <span className="text-sm font-bold text-red-100 ml-4">
-              🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉 EID FESTIVAL समाप्त - अब सभी सर्विस की कीमतें बढ़ गई हैं! 🎉 EID FESTIVAL ENDED - ALL SERVICE PRICES HAVE BEEN INCREASED! 🎉
-            </span>
-          </div>
-        </div>
-      </div>
+      <FestivalBanner />
 
       <div className="pt-32 pb-16">
         {/* Hero Section */}
