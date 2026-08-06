@@ -1,46 +1,318 @@
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { formatCurrency } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { calculatePrice, calculateQuantity, formatCurrency } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useQueryClient } from "@tanstack/react-query";
-interface Props { service: any; isOpen?: boolean; onClose: () => void; onSubmit?: (d:any)=>void; isLoading?: boolean; showDiscountBadge?: boolean; }
-export function ServiceModal({ service, isOpen=true, onClose, onSubmit, isLoading=false, showDiscountBadge=false }: Props) {
-  const { user } = useAuth(); const { toast } = useToast(); const qc = useQueryClient();
-  const [quantity, setQuantity] = useState(100);
-  const [username, setUsername] = useState("");
-  const min = service?.minOrder || service?.minQuantity || 10;
-  const max = service?.maxOrder || service?.maxQuantity || 1000000;
-  const rate = parseFloat(service?.rate || service?.price || 0);
-  const effMin = Math.min(min, max);
-  const effMax = Math.max(min, max);
-  useEffect(()=>{ if(user?.instagramUsername) setUsername(user.instagramUsername); if(service) setQuantity(effMin); }, [service, effMin, user]);
-  const calcPrice = () => { if(!service) return 0; if(service.originalPrice!==undefined) return (service.price*quantity)/1000; return (quantity*rate)/1000; };
-  const handleOrder = async () => {
-    if(!username.trim()){ toast({title:"Username डालो", variant:"destructive"}); return; }
-    if(quantity<effMin||quantity>effMax){ toast({title:"गलत Quantity", description:`${effMin} से ${effMax} के बीच`, variant:"destructive"}); return; }
-    const price = calcPrice();
-    if(onSubmit){ onSubmit({serviceName:service.name, instagramUsername:username.trim(), quantity, price}); return; }
-    try{ const r=await apiRequest("POST","/api/orders",{serviceName:service.name, instagramUsername:username.trim(), quantity, price}); await r.json(); qc.invalidateQueries({queryKey:["/api/auth/user"]}); qc.invalidateQueries({queryKey:["/api/orders"]}); toast({title:"Order हो गया!"}); onClose(); }
-    catch(e:any){ toast({title:"Failed", description:e.message, variant:"destructive"}); }
+
+const orderSchema = z.object({
+  instagramUsername: z.string().min(1, "Instagram username is required"),
+  price: z.number().min(0.01, "Price must be greater than 0"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+});
+
+type OrderForm = z.infer<typeof orderSchema>;
+
+interface Service {
+  id: number;
+  name: string;
+  category: string;
+  rate: string;
+  minOrder: number;
+  maxOrder: number;
+  deliveryTime: string;
+}
+
+interface ServiceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  service: Service | null;
+  isDiscounted?: boolean;
+}
+
+export function ServiceModal({ isOpen, onClose, service, isDiscounted = false }: ServiceModalProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [priceInputValue, setPriceInputValue] = useState("");
+  const [quantityInputValue, setQuantityInputValue] = useState("");
+
+  const calculatePrice = (quantity: number) => {
+    if (!service) return 0;
+    const rate = parseFloat(service.rate);
+    return (quantity * rate) / 1000;
   };
-  if(!service) return null;
+
+  const getMinimumQuantityForPrice = () => {
+    if (!service) return 0;
+    const rate = parseFloat(service.rate);
+    return Math.ceil((20 * 1000) / rate); // Minimum ₹20 order
+  };
+
+  const minQuantityForPrice = getMinimumQuantityForPrice();
+  const effectiveMinOrder = Math.max(service?.minOrder || 0, minQuantityForPrice);
+
+  const form = useForm<OrderForm>({
+    resolver: zodResolver(orderSchema),
+    defaultValues: {
+      instagramUsername: "",
+      price: 0,
+      quantity: effectiveMinOrder,
+    },
+  });
+
+  const createOrder = useMutation({
+    mutationFn: async (data: OrderForm & { serviceName: string }) => {
+      const response = await apiRequest("POST", "/api/orders", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Order Placed!",
+        description: "Your order has been placed successfully.",
+      });
+      onClose();
+    },
+    onError: (error: any) => {
+      const message = error.message || "Failed to place order";
+      if (message.includes("Insufficient wallet balance")) {
+        toast({
+          title: "Insufficient Balance",
+          description: "Please add funds to your wallet to continue.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: message,
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const rate = service ? parseFloat(service.rate) : 0;
+
+  const handlePriceChange = (value: string) => {
+    setPriceInputValue(value);
+    const price = value === "" ? 0 : parseFloat(value) || 0;
+    if (price > 0 && rate > 0) {
+      const quantity = calculateQuantity(price, rate);
+      setQuantityInputValue(quantity.toString());
+      form.setValue("quantity", quantity);
+    }
+    form.setValue("price", price);
+  };
+
+  const handleQuantityChange = (value: string) => {
+    setQuantityInputValue(value);
+    const quantity = value === "" ? 0 : parseInt(value) || 0;
+    if (quantity > 0 && rate > 0) {
+      const price = calculatePrice(quantity, rate);
+      setPriceInputValue(price.toFixed(2));
+      form.setValue("price", price);
+    }
+    form.setValue("quantity", quantity);
+  };
+
+  const onSubmit = async (data: OrderForm) => {
+    if (!service) return;
+
+    if (data.quantity < effectiveMinOrder || data.quantity > service.maxOrder) {
+      toast({
+        title: "Invalid Quantity",
+        description: `Quantity must be between ${effectiveMinOrder} and ${service.maxOrder.toLocaleString()}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const userBalance = parseFloat(user?.walletBalance || "0");
+    if (data.price > userBalance) {
+      toast({
+        title: "Insufficient Balance",
+        description: "Please add funds to your wallet to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await createOrder.mutateAsync({
+      ...data,
+      serviceName: service.name,
+    });
+  };
+
+  useEffect(() => {
+    if (isOpen && user) {
+      form.setValue("instagramUsername", user.instagramUsername);
+    }
+  }, [isOpen, user, form]);
+
+  if (!service) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg border-gold/50 max-h-[90vh] overflow-y-auto" style={{backgroundColor:'rgba(28,45,36,0.98)'}}>
-        <DialogHeader><DialogTitle className="text-gold text-2xl text-center">{service.name}</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="border border-gold/30 rounded-lg p-3 grid grid-cols-2 gap-2 text-sm">
-            <div><span className="text-cream/50">Rate:</span><span className="text-gold ml-2">{formatCurrency(rate)}/1000</span></div>
-            <div><span className="text-cream/50">Min/Max:</span><span className="text-cream ml-2">{effMin}/{effMax}</span></div>
+      <DialogContent className="sm:max-w-lg backdrop-blur-md border-gold/50 shadow-2xl" style={{ backgroundColor: 'rgba(28, 45, 36, 0.95)' }}>
+        <DialogHeader>
+          <DialogTitle className="text-center text-2xl font-bold text-gold mb-2">
+            {service.name}
+          </DialogTitle>
+          <p className="text-center text-cream/70">
+            Place your order for {service.category.toLowerCase()}
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Service Details */}
+          <div className="border border-gold/30 rounded-lg p-4 grid grid-cols-2 gap-4 text-sm" style={{ backgroundColor: 'rgba(214, 173, 96, 0.1)' }}>
+            <div>
+              <span className="text-cream/60">Rate:</span>
+              <span className="text-gold font-semibold ml-2">
+                {formatCurrency(parseFloat(service.rate))}/1000
+              </span>
+            </div>
+            <div>
+              <span className="text-cream/60">Delivery:</span>
+              <span className="text-cream ml-2">{service.deliveryTime}</span>
+            </div>
+            <div>
+              <span className="text-cream/60">Min:</span>
+              <span className="text-cream ml-2">{effectiveMinOrder.toLocaleString()}</span>
+            </div>
+            <div>
+              <span className="text-cream/60">Max:</span>
+              <span className="text-cream ml-2">{service.maxOrder.toLocaleString()}</span>
+            </div>
           </div>
-          <Input value={username} onChange={e=>setUsername(e.target.value)} placeholder="@username" className="bg-charcoal-dark border-gold/20 text-cream" />
-          <Input type="number" value={quantity} onChange={e=>setQuantity(parseInt(e.target.value)||effMin)} min={effMin} max={effMax} className="bg-charcoal-dark border-gold/20 text-cream" />
-          <div className="bg-gold/10 border border-gold/30 rounded-lg p-3"><div className="flex justify-between text-gold font-bold"><span>Total:</span><span>₹{calcPrice().toFixed(2)}</span></div></div>
-          <div className="flex gap-3"><Button variant="outline" onClick={onClose} className="flex-1">Cancel</Button><Button onClick={handleOrder} disabled={isLoading} className="flex-1 btn-primary">Confirm - ₹{calcPrice().toFixed(2)}</Button></div>
+
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="instagramUsername"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-cream font-medium">
+                      Instagram Username/URL
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="@username or profile URL"
+                        className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormItem>
+                  <FormLabel className="text-cream font-medium">Price (₹)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={priceInputValue}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      placeholder="0"
+                      className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold"
+                    />
+                  </FormControl>
+                </FormItem>
+
+                <FormItem>
+                  <FormLabel className="text-cream font-medium">Quantity</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={quantityInputValue}
+                      onChange={(e) => handleQuantityChange(e.target.value)}
+                      placeholder="0"
+                      className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold"
+                    />
+                  </FormControl>
+                </FormItem>
+              </div>
+
+              {(parseFloat(priceInputValue) || 0) < 20 && priceInputValue !== "" && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
+                  <p className="text-red-400 text-sm font-medium">
+                    <i className="fas fa-exclamation-triangle mr-2"></i>
+                    Minimum order amount is ₹20. Please increase the quantity.
+                  </p>
+                </div>
+              )}
+
+              <div className="bg-gold/10 border border-gold/30 rounded-lg p-4">
+                <h4 className="text-gold font-semibold mb-2">Order Summary</h4>
+                <div className="flex justify-between text-cream/80 mb-1">
+                  <span>Service:</span>
+                  <span>{service.name}</span>
+                </div>
+                <div className="flex justify-between text-cream/80 mb-1">
+                  <span>Quantity:</span>
+                  <span>{quantityInputValue || "0"}</span>
+                </div>
+                <div className="flex justify-between text-cream/80 mb-1">
+                  <span>Delivery:</span>
+                  <span>{service.deliveryTime}</span>
+                </div>
+                <div className="flex justify-between text-lg font-bold text-gold">
+                  <span>Total:</span>
+                  <span>{formatCurrency(parseFloat(priceInputValue) || 0)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1 btn-outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={createOrder.isPending || (parseFloat(priceInputValue) || 0) < 20}
+                  className="flex-1 btn-primary"
+                >
+                  {createOrder.isPending ? (
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                  ) : (
+                    <i className="fas fa-check mr-2"></i>
+                  )}
+                  Confirm Order
+                </Button>
+              </div>
+            </form>
+          </Form>
         </div>
       </DialogContent>
     </Dialog>
