@@ -70,7 +70,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
     }
 
     try {
-      const response = await fetch("/api/dummy-no-call", {
+      const response = await fetch("/api/verify-referral-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
@@ -104,7 +104,24 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
           return;
         }
 
-        // FIXED: No API call - local validation only
+        // Check if referral code exists
+        const validateResponse = await fetch("/api/validate-referral", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ referralCode: referralCode.trim() }),
+        });
+
+        if (!validateResponse.ok) {
+          const errorData = await validateResponse.json();
+          toast({
+            title: "Invalid Referral Code",
+            description: errorData.error || "Referral code not found",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       const loginData = {
@@ -228,7 +245,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                 <Input
                   value={referralCode}
                   onChange={(e) => {
-                    const raw = e.target.value.toUpperCase();
+                    const raw = e.target.value.toUpperCase().trim();
                     setReferralCode(raw);
                   }}
                   type="text"
@@ -240,9 +257,9 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                   }}
                   className="focus:border-2 mt-2"
                 />
-                {referralCode && !referralCode.startsWith('REF') && (
+                {referralCode && referralCode.length > 0 && !referralCode.startsWith('REF') && (
                   <p className="text-red-400 text-sm mt-1">
-                    Referral code should start with "REF"
+                    Referral code should start with "REF" (e.g., REFJG199D)
                   </p>
                 )}
               </div>

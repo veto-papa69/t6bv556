@@ -246,20 +246,52 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                   value={referralCode}
                   onChange={(e) => {
                     const raw = e.target.value.toUpperCase();
+                    // Allow typing anything, but auto-uppercase and trim spaces
+                    // Progressive typing: allow R, RE, REF, REF-, etc and full codes
                     setReferralCode(raw);
+                    // Reset validation while typing
+                    if (!raw) {
+                      setReferralCodeValid(null);
+                      setReferralOwner("");
+                    } else if (raw.startsWith('REF-') && raw.length >= 8) {
+                      validateReferralCode(raw);
+                    } else {
+                      setReferralCodeValid(null);
+                    }
+                  }}
+                  onPaste={(e) => {
+                    // Allow paste of full referral code
+                    e.preventDefault();
+                    const pasted = (e.clipboardData.getData('text') || '').toUpperCase().trim();
+                    if (pasted) {
+                      setReferralCode(pasted);
+                      if (pasted.startsWith('REF-')) {
+                        validateReferralCode(pasted);
+                      }
+                    }
                   }}
                   type="text"
                   placeholder="Enter referral code (e.g., REF-UID123-ABC456)"
                   style={{ 
                     backgroundColor: 'var(--main-bg)', 
-                    borderColor: 'var(--gold)', 
+                    borderColor: referralCodeValid === true ? '#22c55e' : referralCodeValid === false ? '#ef4444' : 'var(--gold)', 
                     color: 'var(--primary-text)' 
                   }}
                   className="focus:border-2 mt-2"
                 />
-                {referralCode && !referralCode.startsWith('REF-') && (
+                {referralCode && referralCode.length > 0 && !referralCode.startsWith('REF-') && referralCode.length >= 2 && (
                   <p className="text-red-400 text-sm mt-1">
-                    Referral code must start with "REF-"
+                    Referral code should start with "REF-"
+                  </p>
+                )}
+                {referralCodeValid === true && (
+                  <p className="text-green-400 text-sm mt-1 flex items-center gap-1">
+                    <i className="fas fa-check-circle"></i> Valid code! Owner: {referralOwner}
+                  </p>
+                )}
+                {referralCodeValid === false && referralCode.startsWith('REF-') && (
+                  <p className="text-red-400 text-sm mt-1">
+                    Invalid referral code
                   </p>
                 )}
               </div>
