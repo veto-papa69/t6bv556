@@ -63,22 +63,31 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
 
   // Validate referral code
   const validateReferralCode = async (code: string) => {
-    if (!code || !code.startsWith('REF')) {
+    if (!code || !code.startsWith('REF-')) {
       setReferralCodeValid(false);
       setReferralOwner("");
       return;
     }
 
     try {
-      // Local validation only - no API call
-      if (code.length >= 6) {
+      const response = await fetch("/api/verify-referral-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await response.json();
+
+      if (data.valid) {
         setReferralCodeValid(true);
-        setReferralOwner("Valid");
+        setReferralOwner(data.ownerUsername || "Unknown");
       } else {
         setReferralCodeValid(false);
+        setReferralOwner("");
       }
     } catch (error) {
-      setReferralCodeValid(true);
+      setReferralCodeValid(false);
+      setReferralOwner("");
     }
   };
 
@@ -86,7 +95,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
     try {
       // Validate referral code if provided
       if (referralCode && referralCode.trim()) {
-        if (!referralCode.startsWith('REF')) {
+        if (!referralCode.startsWith('REF-')) {
           toast({
             title: "Invalid Referral Code",
             description: "Referral code must start with REF-",
@@ -95,7 +104,24 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
           return;
         }
 
-        // No API call - let backend handle during login
+        // Check if referral code exists
+        const validateResponse = await fetch("/api/validate-referral", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ referralCode: referralCode.trim() }),
+        });
+
+        if (!validateResponse.ok) {
+          const errorData = await validateResponse.json();
+          toast({
+            title: "Invalid Referral Code",
+            description: errorData.error || "Referral code not found",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       const loginData = {
@@ -231,9 +257,9 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                   }}
                   className="focus:border-2 mt-2"
                 />
-                {referralCode && !referralCode.startsWith('REF') && (
+                {referralCode && !referralCode.startsWith('REF-') && (
                   <p className="text-red-400 text-sm mt-1">
-                    Referral code should start with "REF"
+                    Referral code must start with "REF-"
                   </p>
                 )}
               </div>

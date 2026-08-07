@@ -70,7 +70,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
     }
 
     try {
-      const response = await fetch("/api/verify-referral-code", {
+      const response = await fetch("/api/dummy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
@@ -104,24 +104,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
           return;
         }
 
-        // Check if referral code exists
-        const validateResponse = await fetch("/api/validate-referral", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ referralCode: referralCode.trim() }),
-        });
-
-        if (!validateResponse.ok) {
-          const errorData = await validateResponse.json();
-          toast({
-            title: "Invalid Referral Code",
-            description: errorData.error || "Referral code not found",
-            variant: "destructive",
-          });
-          return;
-        }
+        // No API validation - backend handles
       }
 
       const loginData = {
@@ -245,8 +228,9 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                 <Input
                   value={referralCode}
                   onChange={(e) => {
-                    const raw = e.target.value.toUpperCase().trim();
+                    const raw = e.target.value.toUpperCase();
                     setReferralCode(raw);
+                    if (!raw) { setReferralCodeValid(null); setReferralOwner(""); } else if (raw.startsWith('REF') && raw.length >= 8) { validateReferralCode(raw); } else { setReferralCodeValid(null); }
                   }}
                   type="text"
                   placeholder="Enter referral code (e.g., REF-UID123-ABC456)"
@@ -257,9 +241,9 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                   }}
                   className="focus:border-2 mt-2"
                 />
-                {referralCode && referralCode.length > 0 && !referralCode.startsWith('REF') && (
+                {referralCode && !referralCode.startsWith('REF') && (
                   <p className="text-red-400 text-sm mt-1">
-                    Referral code should start with "REF" (e.g., REFJG199D)
+                    Referral code should start with "REF"
                   </p>
                 )}
               </div>
