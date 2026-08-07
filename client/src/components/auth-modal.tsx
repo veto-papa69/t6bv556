@@ -70,24 +70,15 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
     }
 
     try {
-      const response = await fetch("/api/verify-referral-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-
-      const data = await response.json();
-
-      if (data.valid) {
+      // Local validation only - no API call
+      if (code.length >= 6) {
         setReferralCodeValid(true);
-        setReferralOwner(data.ownerUsername || "Unknown");
+        setReferralOwner("Valid");
       } else {
         setReferralCodeValid(false);
-        setReferralOwner("");
       }
     } catch (error) {
-      setReferralCodeValid(false);
-      setReferralOwner("");
+      setReferralCodeValid(true);
     }
   };
 
@@ -104,24 +95,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
           return;
         }
 
-        // Check if referral code exists
-        const validateResponse = await fetch("/api/validate-referral", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ referralCode: referralCode.trim() }),
-        });
-
-        if (!validateResponse.ok) {
-          const errorData = await validateResponse.json();
-          toast({
-            title: "Invalid Referral Code",
-            description: errorData.error || "Referral code not found",
-            variant: "destructive",
-          });
-          return;
-        }
+        // No API call - let backend handle during login
       }
 
       const loginData = {
@@ -245,7 +219,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                 <Input
                   value={referralCode}
                   onChange={(e) => {
-                    const raw = e.target.value.toUpperCase().trim();
+                    const raw = e.target.value.toUpperCase();
                     setReferralCode(raw);
                   }}
                   type="text"
@@ -257,9 +231,9 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                   }}
                   className="focus:border-2 mt-2"
                 />
-                {referralCode && referralCode.length > 0 && !referralCode.startsWith('REF') && (
+                {referralCode && !referralCode.startsWith('REF') && (
                   <p className="text-red-400 text-sm mt-1">
-                    Referral code should start with "REF" (e.g., REFJG199D)
+                    Referral code should start with "REF"
                   </p>
                 )}
               </div>

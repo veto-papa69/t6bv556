@@ -1,318 +1,152 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { calculatePrice, calculateQuantity, formatCurrency } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { formatCurrency } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-
-const orderSchema = z.object({
-  instagramUsername: z.string().min(1, "Instagram username is required"),
-  price: z.number().min(0.01, "Price must be greater than 0"),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-});
-
-type OrderForm = z.infer<typeof orderSchema>;
-
-interface Service {
-  id: number;
-  name: string;
-  category: string;
-  rate: string;
-  minOrder: number;
-  maxOrder: number;
-  deliveryTime: string;
-}
+import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ServiceModalProps {
-  isOpen: boolean;
+  service: any;
+  isOpen?: boolean;
   onClose: () => void;
-  service: Service | null;
-  isDiscounted?: boolean;
+  onSubmit?: (data: any) => void;
+  isLoading?: boolean;
+  showDiscountBadge?: boolean;
 }
 
-export function ServiceModal({ isOpen, onClose, service, isDiscounted = false }: ServiceModalProps) {
+export function ServiceModal({ service, isOpen = true, onClose, onSubmit, isLoading = false, showDiscountBadge = false }: ServiceModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [priceInputValue, setPriceInputValue] = useState("");
-  const [quantityInputValue, setQuantityInputValue] = useState("");
+  const [quantity, setQuantity] = useState<number>(100);
+  const [instagramUsername, setInstagramUsername] = useState<string>("");
 
-  const calculatePrice = (quantity: number) => {
-    if (!service) return 0;
-    const rate = parseFloat(service.rate);
-    return (quantity * rate) / 1000;
-  };
+  // FIXED: Correct min/max logic - ensure min <= max always
+  const serviceMin = service?.minOrder || service?.minQuantity || 10;
+  const serviceMax = service?.maxOrder || service?.maxQuantity || 100000;
+  const serviceRate = parseFloat(service?.rate || service?.price || 0);
 
-  const getMinimumQuantityForPrice = () => {
-    if (!service) return 0;
-    const rate = parseFloat(service.rate);
-    return Math.ceil((20 * 1000) / rate); // Minimum ₹20 order
-  };
-
-  const minQuantityForPrice = getMinimumQuantityForPrice();
-  const effectiveMinOrder = Math.max(service?.minOrder || 0, minQuantityForPrice);
-
-  const form = useForm<OrderForm>({
-    resolver: zodResolver(orderSchema),
-    defaultValues: {
-      instagramUsername: "",
-      price: 0,
-      quantity: effectiveMinOrder,
-    },
-  });
-
-  const createOrder = useMutation({
-    mutationFn: async (data: OrderForm & { serviceName: string }) => {
-      const response = await apiRequest("POST", "/api/orders", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({
-        title: "Order Placed!",
-        description: "Your order has been placed successfully.",
-      });
-      onClose();
-    },
-    onError: (error: any) => {
-      const message = error.message || "Failed to place order";
-      if (message.includes("Insufficient wallet balance")) {
-        toast({
-          title: "Insufficient Balance",
-          description: "Please add funds to your wallet to continue.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: message,
-          variant: "destructive",
-        });
-      }
-    },
-  });
-
-  const rate = service ? parseFloat(service.rate) : 0;
-
-  const handlePriceChange = (value: string) => {
-    setPriceInputValue(value);
-    const price = value === "" ? 0 : parseFloat(value) || 0;
-    if (price > 0 && rate > 0) {
-      const quantity = calculateQuantity(price, rate);
-      setQuantityInputValue(quantity.toString());
-      form.setValue("quantity", quantity);
-    }
-    form.setValue("price", price);
-  };
-
-  const handleQuantityChange = (value: string) => {
-    setQuantityInputValue(value);
-    const quantity = value === "" ? 0 : parseInt(value) || 0;
-    if (quantity > 0 && rate > 0) {
-      const price = calculatePrice(quantity, rate);
-      setPriceInputValue(price.toFixed(2));
-      form.setValue("price", price);
-    }
-    form.setValue("quantity", quantity);
-  };
-
-  const onSubmit = async (data: OrderForm) => {
-    if (!service) return;
-
-    if (data.quantity < effectiveMinOrder || data.quantity > service.maxOrder) {
-      toast({
-        title: "Invalid Quantity",
-        description: `Quantity must be between ${effectiveMinOrder} and ${service.maxOrder.toLocaleString()}`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const userBalance = parseFloat(user?.walletBalance || "0");
-    if (data.price > userBalance) {
-      toast({
-        title: "Insufficient Balance",
-        description: "Please add funds to your wallet to continue.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    await createOrder.mutateAsync({
-      ...data,
-      serviceName: service.name,
-    });
-  };
+  // FIXED: Don't enforce ₹20 minimum that causes min > max bug
+  // Use actual service minOrder as effective min
+  const effectiveMin = Math.min(serviceMin, serviceMax);
+  const effectiveMax = Math.max(serviceMin, serviceMax);
 
   useEffect(() => {
-    if (isOpen && user) {
-      form.setValue("instagramUsername", user.instagramUsername);
+    if (user?.instagramUsername) setInstagramUsername(user.instagramUsername);
+    if (service) {
+      // Start with min quantity
+      setQuantity(effectiveMin);
     }
-  }, [isOpen, user, form]);
+  }, [service, effectiveMin, user]);
+
+  const calculatePrice = () => {
+    if (!service) return 0;
+    if (service.originalPrice !== undefined) {
+      // Reward service: price is per 1000
+      return (service.price * quantity) / 1000;
+    }
+    // Normal: rate per 1000 * quantity
+    return (quantity * serviceRate) / 1000;
+  };
+
+  const handleOrder = async () => {
+    if (!service) return;
+    if (!instagramUsername.trim()) {
+      toast({ title: "Instagram Username डालो", description: "Username जरूरी है", variant: "destructive" });
+      return;
+    }
+    if (quantity < effectiveMin || quantity > effectiveMax) {
+      toast({ title: "गलत Quantity", description: `Quantity ${effectiveMin} से ${effectiveMax} के बीच होनी चाहिए`, variant: "destructive" });
+      return;
+    }
+    const price = calculatePrice();
+    if (price <= 0) {
+      toast({ title: "Invalid price", variant: "destructive" });
+      return;
+    }
+
+    if (onSubmit) {
+      onSubmit({ serviceName: service.name, instagramUsername: instagramUsername.trim(), quantity, price });
+      return;
+    }
+
+    try {
+      const response = await apiRequest("POST", "/api/orders", {
+        serviceName: service.name,
+        instagramUsername: instagramUsername.trim(),
+        quantity,
+        price,
+      });
+      await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({ title: "ऑर्डर हो गया! ✅", description: "तुम्हारा ऑर्डर सफलतापूर्वक प्लेस हो गया" });
+      onClose();
+    } catch (error: any) {
+      toast({ title: "ऑर्डर फेल", description: error.message, variant: "destructive" });
+    }
+  };
 
   if (!service) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg backdrop-blur-md border-gold/50 shadow-2xl" style={{ backgroundColor: 'rgba(28, 45, 36, 0.95)' }}>
+      <DialogContent className="sm:max-w-lg border-gold/50 shadow-2xl max-h-[90vh] overflow-y-auto" style={{ backgroundColor: 'rgba(28, 45, 36, 0.98)' }}>
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-bold text-gold mb-2">
+          <DialogTitle className="text-center text-2xl font-bold text-gold flex items-center justify-center gap-2">
+            {showDiscountBadge && <Badge className="bg-gradient-to-r from-red-500 to-pink-500 text-white">50% OFF</Badge>}
             {service.name}
           </DialogTitle>
-          <p className="text-center text-cream/70">
-            Place your order for {service.category.toLowerCase()}
-          </p>
+          <p className="text-center text-cream/60 text-sm">ऑर्डर प्लेस करो - {service.category || 'सर्विस'}</p>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Service Details */}
-          <div className="border border-gold/30 rounded-lg p-4 grid grid-cols-2 gap-4 text-sm" style={{ backgroundColor: 'rgba(214, 173, 96, 0.1)' }}>
+        <div className="space-y-5">
+          <div className="border border-gold/30 rounded-lg p-4 grid grid-cols-2 gap-3 text-sm" style={{ backgroundColor: 'rgba(214, 173, 96, 0.08)' }}>
+            <div><span className="text-cream/50">Rate:</span><span className="text-gold font-bold ml-2">{formatCurrency(serviceRate)}/1000</span></div>
+            <div><span className="text-cream/50">Delivery:</span><span className="text-cream ml-2">{service.deliveryTime || 'Instant'}</span></div>
+            <div><span className="text-cream/50">Min:</span><span className="text-cream ml-2">{effectiveMin.toLocaleString()}</span></div>
+            <div><span className="text-cream/50">Max:</span><span className="text-cream ml-2">{effectiveMax.toLocaleString()}</span></div>
+          </div>
+
+          <div className="space-y-4">
             <div>
-              <span className="text-cream/60">Rate:</span>
-              <span className="text-gold font-semibold ml-2">
-                {formatCurrency(parseFloat(service.rate))}/1000
-              </span>
+              <label className="text-cream text-sm font-medium mb-2 block">Instagram Username / URL <span className="text-red-400">*</span></label>
+              <Input value={instagramUsername} onChange={(e)=>setInstagramUsername(e.target.value)} placeholder="@username या पोस्ट लिंक" className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold" />
+              <p className="text-xs text-cream/40 mt-1">पब्लिक अकाउंट होना चाहिए, प्राइवेट नहीं</p>
             </div>
-            <div>
-              <span className="text-cream/60">Delivery:</span>
-              <span className="text-cream ml-2">{service.deliveryTime}</span>
-            </div>
-            <div>
-              <span className="text-cream/60">Min:</span>
-              <span className="text-cream ml-2">{effectiveMinOrder.toLocaleString()}</span>
-            </div>
-            <div>
-              <span className="text-cream/60">Max:</span>
-              <span className="text-cream ml-2">{service.maxOrder.toLocaleString()}</span>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-cream text-sm font-medium mb-2 block">Price (₹)</label>
+                <Input value={calculatePrice().toFixed(2)} readOnly className="bg-charcoal-dark border-gold/10 text-gold font-bold" />
+              </div>
+              <div>
+                <label className="text-cream text-sm font-medium mb-2 block">Quantity <span className="text-red-400">*</span></label>
+                <Input type="number" value={quantity} onChange={(e)=>setQuantity(parseInt(e.target.value)||effectiveMin)} min={effectiveMin} max={effectiveMax} className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold" />
+                <p className="text-xs text-cream/40 mt-1">{effectiveMin.toLocaleString()} - {effectiveMax.toLocaleString()}</p>
+              </div>
             </div>
           </div>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="instagramUsername"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-cream font-medium">
-                      Instagram Username/URL
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="@username or profile URL"
-                        className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <div className="bg-gold/10 border border-gold/30 rounded-lg p-4">
+            <h4 className="text-gold font-bold mb-2">Order Summary</h4>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-cream/70"><span>Service:</span><span className="text-cream text-right ml-2 truncate">{service.name}</span></div>
+              <div className="flex justify-between text-cream/70"><span>Quantity:</span><span className="text-cream">{quantity.toLocaleString()}</span></div>
+              <div className="flex justify-between text-lg font-bold text-gold"><span>Total:</span><span>₹{calculatePrice().toFixed(2)}</span></div>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormItem>
-                  <FormLabel className="text-cream font-medium">Price (₹)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={priceInputValue}
-                      onChange={(e) => handlePriceChange(e.target.value)}
-                      placeholder="0"
-                      className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold"
-                    />
-                  </FormControl>
-                </FormItem>
-
-                <FormItem>
-                  <FormLabel className="text-cream font-medium">Quantity</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={quantityInputValue}
-                      onChange={(e) => handleQuantityChange(e.target.value)}
-                      placeholder="0"
-                      className="bg-charcoal-dark border-gold/20 text-cream focus:border-gold"
-                    />
-                  </FormControl>
-                </FormItem>
-              </div>
-
-              {(parseFloat(priceInputValue) || 0) < 20 && priceInputValue !== "" && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
-                  <p className="text-red-400 text-sm font-medium">
-                    <i className="fas fa-exclamation-triangle mr-2"></i>
-                    Minimum order amount is ₹20. Please increase the quantity.
-                  </p>
-                </div>
-              )}
-
-              <div className="bg-gold/10 border border-gold/30 rounded-lg p-4">
-                <h4 className="text-gold font-semibold mb-2">Order Summary</h4>
-                <div className="flex justify-between text-cream/80 mb-1">
-                  <span>Service:</span>
-                  <span>{service.name}</span>
-                </div>
-                <div className="flex justify-between text-cream/80 mb-1">
-                  <span>Quantity:</span>
-                  <span>{quantityInputValue || "0"}</span>
-                </div>
-                <div className="flex justify-between text-cream/80 mb-1">
-                  <span>Delivery:</span>
-                  <span>{service.deliveryTime}</span>
-                </div>
-                <div className="flex justify-between text-lg font-bold text-gold">
-                  <span>Total:</span>
-                  <span>{formatCurrency(parseFloat(priceInputValue) || 0)}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  className="flex-1 btn-outline"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createOrder.isPending || (parseFloat(priceInputValue) || 0) < 20}
-                  className="flex-1 btn-primary"
-                >
-                  {createOrder.isPending ? (
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                  ) : (
-                    <i className="fas fa-check mr-2"></i>
-                  )}
-                  Confirm Order
-                </Button>
-              </div>
-            </form>
-          </Form>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={onClose} className="flex-1 btn-outline">Cancel</Button>
+            <Button onClick={handleOrder} disabled={isLoading || quantity < effectiveMin || quantity > effectiveMax || !instagramUsername.trim()} className="flex-1 btn-primary">
+              {isLoading ? <><i className="fas fa-spinner fa-spin mr-2"></i>Processing...</> : <><i className="fas fa-check mr-2"></i>Confirm Order - ₹{calculatePrice().toFixed(2)}</>}
+            </Button>
+          </div>
+          <p className="text-xs text-center text-cream/40">Order के बाद username change मत करो, नहीं तो delivery fail होगी</p>
         </div>
       </DialogContent>
     </Dialog>
