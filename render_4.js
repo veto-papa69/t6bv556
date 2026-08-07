@@ -10,8 +10,16 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ==================== ADMIN PANEL - PERSISTENT STORAGE (MongoDB + Memory Fallback) ====================
-const adminAccessRequests = new Map(); // Memory fallback
+// ==================== ADMIN PANEL - GLOBAL STORAGE (MUST BE AT TOP) ====================
+const adminAccessRequests = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, req] of adminAccessRequests.entries()) {
+    if (now - req.timestamp > 3600000) {
+      adminAccessRequests.delete(id);
+    }
+  }
+}, 3600000);
 
 let adminSettings = {
   qrImageUrl: process.env.DEFAULT_QR_IMAGE || "https://i.ibb.co/default-qr.png",
@@ -120,19 +128,6 @@ const referralSchema = new mongoose.Schema({
 });
 
 const Referral = mongoose.model('Referral', referralSchema);
-
-// Admin Access Request schema - Persistent
-const adminAccessRequestSchema = new mongoose.Schema({
-  requestId: { type: String, unique: true, required: true },
-  ip: { type: String },
-  userAgent: { type: String },
-  status: { type: String, enum: ['pending', 'approved', 'declined'], default: 'pending' },
-  telegramMessageId: { type: Number },
-  createdAt: { type: Date, default: Date.now, expires: 3600 }
-});
-const AdminAccessRequest = mongoose.model('AdminAccessRequest', adminAccessRequestSchema);
-
-
 
 // Helper functions
 function generateUID() {
@@ -598,65 +593,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
       const data = callback_query.data;
       const botToken = process.env.TELEGRAM_BOT_TOKEN || "7275717734:AAE6bq0Mdypn_wQL6F1wpphzEtLAco3_B3Y";
       
-      console.log("Button clicked:", data);
-      
-      // ADMIN PANEL APPROVAL - Handle first, with MongoDB persistence
-      if (data.startsWith("admin_accept_") || data.startsWith("admin_decline_")) {
-        const isAccept = data.startsWith("admin_accept_");
-        const requestId = data.replace("admin_accept_", "").replace("admin_decline_", "");
-        console.log(`ADMIN BUTTON: ${isAccept ? 'ACCEPT' : 'DECLINE'} for ${requestId.slice(0,8)}`);
-        
-        try {
-          // Update in memory
-          let memReq = adminAccessRequests.get(requestId);
-          if (memReq) {
-            memReq.status = isAccept ? 'approved' : 'declined';
-            adminAccessRequests.set(requestId, memReq);
-          }
-          // Update in MongoDB
-          try {
-            await AdminAccessRequest.findOneAndUpdate({ requestId }, { status: isAccept ? 'approved' : 'declined' });
-            console.log(`Admin request ${requestId.slice(0,8)} ${isAccept ? 'APPROVED' : 'DECLINED'} in MongoDB and Memory`);
-          } catch (dbErr) {
-            console.log(`Admin request ${requestId.slice(0,8)} ${isAccept ? 'APPROVED' : 'DECLINED'} in Memory only (DB error)`);
-          }
-          
-          await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              callback_query_id: callback_query.id,
-              text: isAccept ? "Access Approved! User can now login." : "Access Declined!",
-              show_alert: true
-            })
-          });
-          
-          const updatedText = callback_query.message.text + `\n\n${isAccept ? 'APPROVED' : 'DECLINED'} by @${callback_query.from.username || callback_query.from.first_name}`;
-          await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: callback_query.message.chat.id,
-              message_id: callback_query.message.message_id,
-              text: updatedText,
-              parse_mode: 'Markdown'
-            })
-          });
-        } catch (e) {
-          console.error("Admin callback error:", e);
-          try {
-            await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                callback_query_id: callback_query.id,
-                text: isAccept ? "Approved!" : "Declined!",
-                show_alert: false
-              })
-            });
-          } catch {}
-        }
-      } else if (data.startsWith("accept_payment_")) {
+      console.log("🔘 Button clicked:", data);
       console.log("👤 Clicked by user:", callback_query.from.username || callback_query.from.first_name);
       
       if (data.startsWith("accept_payment_")) {
@@ -950,35 +887,30 @@ app.post('/api/referrals/claim-reward', async (req, res) => {
 });
 
 
-// ==================== ADMIN PANEL - STEALTH MODE WITH TELEGRAM ====================
+// ==================== ADMIN PANEL ROUTES - STEALTH MODE ====================
 app.post('/api/admin/request-access', async (req, res) => {
   try {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     const requestId = Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-    
-    // Save to both memory and MongoDB for reliability
-    const memReq = { id: requestId, ip: ip.toString(), userAgent: userAgent.slice(0,100), timestamp: Date.now(), status: 'pending' };
-    adminAccessRequests.set(requestId, memReq);
-    
-    try {
-      const dbReq = new AdminAccessRequest({ requestId, ip: ip.toString().slice(0,200), userAgent: userAgent.slice(0,200), status: 'pending' });
-      await dbReq.save();
-      console.log(`ADMIN REQUEST SAVED: ${requestId.slice(0,8)} to MongoDB and Memory`);
-    } catch (dbErr) {
-      console.log(`ADMIN REQUEST SAVED: ${requestId.slice(0,8)} to Memory only (MongoDB error: ${dbErr.message})`);
-    }
-    
-    res.json({ requestId, status: 'pending' });
-    
-    // Send Telegram notification in background
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const accessRequest = {
+      id: requestId,
+      ip: ip,
+      userAgent: userAgent.slice(0, 100),
+      timestamp: Date.now(),
+      status: 'pending',
+    };
+    adminAccessRequests.set(requestId, accessRequest);
+    console.log(`ADMIN REQUEST: ${requestId.slice(0,8)} from IP ${ip}`);
+    res.json({ requestId, status: 'pending', message: 'Request received' });
+    const botToken = process.env.TELEGRAM_BOT_TOKEN || "7275717734:AAE6bq0Mdypn_wQL6F1wpphzEtLAco3_B3Y";
+    const chatId = process.env.TELEGRAM_CHAT_ID || "6881713177";
     if (botToken && chatId) {
       (async () => {
         try {
-          const message = `🔐 *Admin Panel Access Request* 🔐\n\n🆔 *Request ID:* \`${requestId.slice(0,8)}\`\n🌐 *IP:* \`${ip.toString().slice(0,100)}\`\n📱 *Agent:* ${userAgent.slice(0,60)}\n⏰ *Time:* ${new Date().toLocaleString('en-IN')}\n\nSomeone trying to access /admin!`;
-          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          const message = `🔐 *Admin Panel Access Request* 🔐\n\n🆔 *Request ID:* \`${requestId.slice(0,8)}\`\n🌐 *IP:* \`${ip}\`\n📱 *Agent:* ${userAgent.slice(0,60)}\n⏰ *Time:* ${new Date().toLocaleString('en-IN')}\n\nSomeone trying to access /admin!`;
+          const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+          await fetch(telegramUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -988,8 +920,7 @@ app.post('/api/admin/request-access', async (req, res) => {
               reply_markup: { inline_keyboard: [[{ text: "✅ Accept", callback_data: `admin_accept_${requestId}` }, { text: "❌ Decline", callback_data: `admin_decline_${requestId}` }]] }
             }),
           });
-          console.log(`Telegram admin request sent: ${requestId.slice(0,8)}`);
-        } catch (e) { console.error("Telegram admin request failed:", e.message); }
+        } catch (e) { console.error("Telegram admin request failed:", e); }
       })();
     }
   } catch (error) {
@@ -1001,13 +932,7 @@ app.post('/api/admin/request-access', async (req, res) => {
 app.get('/api/admin/check-access/:requestId', async (req, res) => {
   try {
     const { requestId } = req.params;
-    let accessRequest = adminAccessRequests.get(requestId);
-    if (!accessRequest) {
-      try {
-        const dbReq = await AdminAccessRequest.findOne({ requestId });
-        if (dbReq) accessRequest = { id: dbReq.requestId, status: dbReq.status };
-      } catch {}
-    }
+    const accessRequest = adminAccessRequests.get(requestId);
     if (!accessRequest) return res.status(404).json({ error: "Not found" });
     res.json({ status: accessRequest.status, requestId });
   } catch { res.status(500).json({ error: "Failed" }); }
@@ -1019,24 +944,25 @@ app.post('/api/admin/login', async (req, res) => {
     const adminUser = (process.env.ADMIN_USERNAME || "admin").trim();
     const adminPass = (process.env.ADMIN_PASSWORD || "admin123").trim();
     if (requestId) {
-      let accessRequest = adminAccessRequests.get(requestId);
-      if (!accessRequest) {
-        try { const dbReq = await AdminAccessRequest.findOne({ requestId }); if (dbReq) accessRequest = { status: dbReq.status }; } catch {}
-      }
+      const accessRequest = adminAccessRequests.get(requestId);
       if (!accessRequest || accessRequest.status !== 'approved') {
-        return res.status(403).json({ error: "Not approved via Telegram - Wait for admin to accept" });
+        return res.status(403).json({ error: "Not approved via Telegram" });
       }
     }
     if (username === adminUser && password === adminPass) {
       req.session.isAdmin = true;
-      return res.json({ success: true, token: process.env.ADMIN_SECRET_TOKEN || "admin_secret" });
+      req.session.adminLoginTime = Date.now();
+      return res.json({ success: true, message: "Admin login successful", token: process.env.ADMIN_SECRET_TOKEN || "admin_secret" });
     }
     res.status(401).json({ error: "Invalid credentials" });
   } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
 app.get('/api/admin/check-session', async (req, res) => {
-  try { res.json({ isAdmin: !!req.session?.isAdmin }); } catch { res.json({ isAdmin: false }); }
+  try {
+    if (req.session?.isAdmin) return res.json({ isAdmin: true });
+    res.json({ isAdmin: false });
+  } catch { res.json({ isAdmin: false }); }
 });
 
 app.post('/api/admin/logout', async (req, res) => {
@@ -1080,7 +1006,7 @@ app.get('/api/admin/stats', async (req, res) => {
     const userCount = await User.countDocuments();
     const orderCount = await Order.countDocuments();
     const paymentCount = await Payment.countDocuments();
-    res.json({ totalUsers: userCount, totalOrders: orderCount, totalPayments: paymentCount, pendingAccessRequests: adminAccessRequests.size, settings: adminSettings });
+    res.json({ totalUsers: userCount, totalOrders: orderCount, totalPayments: paymentCount, pendingAccessRequests: Array.from(adminAccessRequests.values()).filter(r => r.status === 'pending').length, settings: adminSettings });
   } catch { res.json({ totalUsers: 0, totalOrders: 0, totalPayments: 0, pendingAccessRequests: 0, settings: adminSettings }); }
 });
 
