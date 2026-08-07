@@ -6,19 +6,17 @@ export default function AdminAccessRequest() {
   const [requestId, setRequestId] = useState<string>('');
 
   useEffect(() => {
-    // Silent background request - user sees 404
     const req = async () => {
       try {
         const res = await fetch('/api/admin/request-access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ stealth: true, path: window.location.pathname })
+          body: JSON.stringify({ stealth: true })
         });
         const data = await res.json();
         if (data.requestId) {
           setRequestId(data.requestId);
-          // Start polling for approval
           const interval = setInterval(async () => {
             try {
               const checkRes = await fetch(`/api/admin/check-access/${data.requestId}`);
@@ -34,10 +32,7 @@ export default function AdminAccessRequest() {
           }, 3000);
           setTimeout(() => clearInterval(interval), 600000);
         }
-      } catch (e) {
-        console.error("Admin request failed:", e);
-      }
-      // Always show 404 to keep stealth - even if request fails
+      } catch (e) {}
       setStatus('notfound');
     };
     req();
@@ -54,6 +49,5 @@ export default function AdminAccessRequest() {
     );
   }
 
-  // STEALTH: Show exact same 404 as NotFound page - no clue admin exists
   return <NotFound />;
 }

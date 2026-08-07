@@ -596,7 +596,41 @@ app.post('/api/telegram/webhook', async (req, res) => {
       console.log("🔘 Button clicked:", data);
       console.log("👤 Clicked by user:", callback_query.from.username || callback_query.from.first_name);
       
-      if (data.startsWith("accept_payment_")) {
+      if (data.startsWith("admin_accept_") || data.startsWith("admin_decline_")) {
+        const isAccept = data.startsWith("admin_accept_");
+        const requestId = data.replace("admin_accept_", "").replace("admin_decline_", "");
+        console.log(`🔐 ADMIN BUTTON: ${isAccept ? 'ACCEPT' : 'DECLINE'} for ${requestId.slice(0,8)}`);
+        const accessRequest = adminAccessRequests.get(requestId);
+        if (accessRequest) {
+          accessRequest.status = isAccept ? 'approved' : 'declined';
+          adminAccessRequests.set(requestId, accessRequest);
+          console.log(`✅ Admin request ${requestId.slice(0,8)} ${isAccept ? 'APPROVED' : 'DECLINED'}`);
+          try {
+            await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                callback_query_id: callback_query.id,
+                text: isAccept ? "✅ Access Approved! User can now login." : "❌ Access Declined!",
+                show_alert: true
+              })
+            });
+            const updatedText = callback_query.message.text + `\n\n${isAccept ? '✅ APPROVED' : '❌ DECLINED'} by @${callback_query.from.username || callback_query.from.first_name}`;
+            await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: callback_query.message.chat.id,
+                message_id: callback_query.message.message_id,
+                text: updatedText,
+                parse_mode: 'Markdown'
+              })
+            });
+          } catch (e) { console.error("Admin callback error:", e); }
+        } else {
+          console.log(`❌ Admin request not found: ${requestId}`);
+        }
+      } else if (data.startsWith("accept_payment_")) {
         const paymentId = data.replace("accept_payment_", "");
         console.log("✅ Processing payment acceptance for ID:", paymentId);
         
