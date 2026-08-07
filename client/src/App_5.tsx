@@ -56,9 +56,7 @@ function App() {
       <TooltipProvider>
         <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--main-bg)' }}>
           <Navbar />
-          <main className="flex-1">
-            <Router />
-          </main>
+          <main className="flex-1"><Router /></main>
           <Footer />
           <Toaster />
         </div>

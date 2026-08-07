@@ -70,15 +70,24 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
     }
 
     try {
-      // Local validation only - no API call
-      if (code.length >= 6) {
+      const response = await fetch("/api/dummy-no-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await response.json();
+
+      if (data.valid) {
         setReferralCodeValid(true);
-        setReferralOwner("Valid");
+        setReferralOwner(data.ownerUsername || "Unknown");
       } else {
         setReferralCodeValid(false);
+        setReferralOwner("");
       }
     } catch (error) {
-      setReferralCodeValid(true);
+      setReferralCodeValid(false);
+      setReferralOwner("");
     }
   };
 
@@ -95,7 +104,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
           return;
         }
 
-        // No API call - let backend handle during login
+        // FIXED: No API call - local validation only
       }
 
       const loginData = {

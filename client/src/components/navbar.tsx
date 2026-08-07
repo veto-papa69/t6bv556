@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -12,9 +11,6 @@ export function Navbar() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const logout = useLogout();
-  const { data: discountAccess } = useQuery({ queryKey: ["/api/referrals/discount-access"], queryFn: async () => { try { const r = await fetch("/api/referrals/discount-access", { credentials: "include" }); if (!r.ok) return false; return r.json(); } catch { return false; } }, enabled: isAuthenticated });
-  const { data: referralData } = useQuery({ queryKey: ["/api/referrals/my"], queryFn: async () => { try { const r = await fetch("/api/referrals/my", { credentials: "include" }); if (!r.ok) return null; return r.json(); } catch { return null; } }, enabled: isAuthenticated });
-  const hasDiscountAccess = referralData?.hasClaimedDiscount || discountAccess === true;
 
   const handleLogout = () => {
     logout.mutate();
@@ -23,7 +19,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Services", requireAuth: true },
-    ...(hasDiscountAccess ? [{ href: "/services-discount", label: "50% OFF 🔥", requireAuth: true }] : []),
+    { href: "/services-discount", label: "50% Discount", requireAuth: true },
     { href: "/referrals", label: "Referrals", requireAuth: true },
     { href: "/wallet", label: "Wallet", requireAuth: true },
     { href: "/add-funds", label: "Add Funds", requireAuth: true },
