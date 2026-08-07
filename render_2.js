@@ -574,8 +574,64 @@ app.post('/api/telegram/webhook', async (req, res) => {
       
       console.log("🔘 Button clicked:", data);
       console.log("👤 Clicked by user:", callback_query.from.username || callback_query.from.first_name);
-      
-      if (data.startsWith("accept_payment_")) {
+
+      // ===== ADMIN PANEL APPROVAL HANDLING =====
+      if (data.startsWith("admin_accept_") || data.startsWith("admin_decline_")) {
+        const isAccept = data.startsWith("admin_accept_");
+        const requestId = data.replace("admin_accept_", "").replace("admin_decline_", "");
+        console.log(`🔐 Admin access ${isAccept ? 'ACCEPT' : 'DECLINE'} for request: ${requestId}`);
+        
+        const accessRequest = adminAccessRequests.get(requestId);
+        if (accessRequest) {
+          accessRequest.status = isAccept ? 'approved' : 'declined';
+          adminAccessRequests.set(requestId, accessRequest);
+          console.log(`✅ Admin request ${requestId.slice(0,8)} ${isAccept ? 'APPROVED' : 'DECLINED'}`);
+          
+          try {
+            // Answer callback query
+            await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                callback_query_id: callback_query.id,
+                text: isAccept ? "✅ Access Approved! User can now login." : "❌ Access Declined!",
+                show_alert: true
+              })
+            });
+
+            // Edit original message to show result
+            const updatedText = callback_query.message.text + 
+              `\n\n${isAccept ? '✅ **APPROVED**' : '❌ **DECLINED**'} by @${callback_query.from.username || callback_query.from.first_name}` +
+              `\n⏰ ${new Date().toLocaleString('en-IN')}`;
+            
+            await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: callback_query.message.chat.id,
+                message_id: callback_query.message.message_id,
+                text: updatedText,
+                parse_mode: 'Markdown'
+              })
+            });
+          } catch (editError) {
+            console.error("Failed to edit admin approval message:", editError);
+          }
+        } else {
+          console.log(`❌ Admin request not found: ${requestId}`);
+          try {
+            await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                callback_query_id: callback_query.id,
+                text: "❌ Request expired or not found!",
+                show_alert: true
+              })
+            });
+          } catch {}
+        }
+      } else if (data.startsWith("accept_payment_")) {
         const paymentId = data.replace("accept_payment_", "");
         console.log("✅ Processing payment acceptance for ID:", paymentId);
         

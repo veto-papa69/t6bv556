@@ -33,6 +33,10 @@ const paymentSchema = z.object({
 type PaymentForm = z.infer<typeof paymentSchema>;
 
 export default function AddFunds() {
+  const [qrSettings, setQrSettings] = useState({ qrImageUrl: "", upiId: "", instructions: "" });
+  useEffect(() => {
+    fetch("/api/settings/qr").then(r => r.json()).then(d => setQrSettings(d)).catch(() => {});
+  }, []);
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();

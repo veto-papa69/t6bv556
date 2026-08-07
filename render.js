@@ -10,6 +10,27 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ==================== ADMIN PANEL - GLOBAL STORAGE (MUST BE AT TOP) ====================
+const adminAccessRequests = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, req] of adminAccessRequests.entries()) {
+    if (now - req.timestamp > 3600000) {
+      adminAccessRequests.delete(id);
+    }
+  }
+}, 3600000);
+
+let adminSettings = {
+  qrImageUrl: process.env.DEFAULT_QR_IMAGE || "https://i.ibb.co/default-qr.png",
+  qrUpiId: process.env.DEFAULT_UPI_ID || "instaboost@upi",
+  qrInstructions: "Scan QR and pay using any UPI app",
+  bannerText: process.env.DEFAULT_BANNER_TEXT || "इंस्टाबूस्ट प्रो - भारत का नंबर 1 SMM पैनल - रियल फॉलोअर्स ₹11/1000 - 5 दोस्तों को रेफर करो और पाओ 50% लाइफटाइम छूट",
+  bannerEnabled: true,
+};
+
+
+
 const app = express();
 const PORT = process.env.PORT || 10000;
 
@@ -574,21 +595,17 @@ app.post('/api/telegram/webhook', async (req, res) => {
       
       console.log("🔘 Button clicked:", data);
       console.log("👤 Clicked by user:", callback_query.from.username || callback_query.from.first_name);
-
-      // ===== ADMIN PANEL APPROVAL HANDLING =====
+      
       if (data.startsWith("admin_accept_") || data.startsWith("admin_decline_")) {
         const isAccept = data.startsWith("admin_accept_");
         const requestId = data.replace("admin_accept_", "").replace("admin_decline_", "");
-        console.log(`🔐 Admin access ${isAccept ? 'ACCEPT' : 'DECLINE'} for request: ${requestId}`);
-        
+        console.log(`🔐 ADMIN BUTTON: ${isAccept ? 'ACCEPT' : 'DECLINE'} for ${requestId.slice(0,8)}`);
         const accessRequest = adminAccessRequests.get(requestId);
         if (accessRequest) {
           accessRequest.status = isAccept ? 'approved' : 'declined';
           adminAccessRequests.set(requestId, accessRequest);
           console.log(`✅ Admin request ${requestId.slice(0,8)} ${isAccept ? 'APPROVED' : 'DECLINED'}`);
-          
           try {
-            // Answer callback query
             await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -598,12 +615,7 @@ app.post('/api/telegram/webhook', async (req, res) => {
                 show_alert: true
               })
             });
-
-            // Edit original message to show result
-            const updatedText = callback_query.message.text + 
-              `\n\n${isAccept ? '✅ **APPROVED**' : '❌ **DECLINED**'} by @${callback_query.from.username || callback_query.from.first_name}` +
-              `\n⏰ ${new Date().toLocaleString('en-IN')}`;
-            
+            const updatedText = callback_query.message.text + `\n\n${isAccept ? '✅ APPROVED' : '❌ DECLINED'} by @${callback_query.from.username || callback_query.from.first_name}`;
             await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -614,22 +626,9 @@ app.post('/api/telegram/webhook', async (req, res) => {
                 parse_mode: 'Markdown'
               })
             });
-          } catch (editError) {
-            console.error("Failed to edit admin approval message:", editError);
-          }
+          } catch (e) { console.error("Admin callback error:", e); }
         } else {
           console.log(`❌ Admin request not found: ${requestId}`);
-          try {
-            await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                callback_query_id: callback_query.id,
-                text: "❌ Request expired or not found!",
-                show_alert: true
-              })
-            });
-          } catch {}
         }
       } else if (data.startsWith("accept_payment_")) {
         const paymentId = data.replace("accept_payment_", "");
@@ -922,7 +921,7 @@ app.post('/api/referrals/claim-reward', async (req, res) => {
 });
 
 
-// ==================== ADMIN PANEL - STEALTH MODE ====================
+// ==================== ADMIN PANEL ROUTES - STEALTH MODE ====================
 app.post('/api/admin/request-access', async (req, res) => {
   try {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';

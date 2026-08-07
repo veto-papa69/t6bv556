@@ -10,27 +10,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Admin Panel - Secure Access Requests Storage (Stealth Mode)
-const adminAccessRequests = new Map();
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, req] of adminAccessRequests.entries()) {
-    if (now - req.timestamp > 3600000) {
-      adminAccessRequests.delete(id);
-    }
-  }
-}, 3600000);
-
-let adminSettings = {
-  qrImageUrl: process.env.DEFAULT_QR_IMAGE || "https://i.ibb.co/default-qr.png",
-  qrUpiId: process.env.DEFAULT_UPI_ID || "instaboost@upi",
-  qrInstructions: "Scan QR and pay using any UPI app",
-  bannerText: process.env.DEFAULT_BANNER_TEXT || "इंस्टाबूस्ट प्रो - भारत का नंबर 1 SMM पैनल - रियल फॉलोअर्स ₹11/1000 - 5 दोस्तों को रेफर करो और पाओ 50% लाइफटाइम छूट",
-  bannerEnabled: true,
-};
-
-
-
 const app = express();
 const PORT = process.env.PORT || 10000;
 
@@ -595,8 +574,64 @@ app.post('/api/telegram/webhook', async (req, res) => {
       
       console.log("🔘 Button clicked:", data);
       console.log("👤 Clicked by user:", callback_query.from.username || callback_query.from.first_name);
-      
-      if (data.startsWith("accept_payment_")) {
+
+      // ===== ADMIN PANEL APPROVAL HANDLING =====
+      if (data.startsWith("admin_accept_") || data.startsWith("admin_decline_")) {
+        const isAccept = data.startsWith("admin_accept_");
+        const requestId = data.replace("admin_accept_", "").replace("admin_decline_", "");
+        console.log(`🔐 Admin access ${isAccept ? 'ACCEPT' : 'DECLINE'} for request: ${requestId}`);
+        
+        const accessRequest = adminAccessRequests.get(requestId);
+        if (accessRequest) {
+          accessRequest.status = isAccept ? 'approved' : 'declined';
+          adminAccessRequests.set(requestId, accessRequest);
+          console.log(`✅ Admin request ${requestId.slice(0,8)} ${isAccept ? 'APPROVED' : 'DECLINED'}`);
+          
+          try {
+            // Answer callback query
+            await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                callback_query_id: callback_query.id,
+                text: isAccept ? "✅ Access Approved! User can now login." : "❌ Access Declined!",
+                show_alert: true
+              })
+            });
+
+            // Edit original message to show result
+            const updatedText = callback_query.message.text + 
+              `\n\n${isAccept ? '✅ **APPROVED**' : '❌ **DECLINED**'} by @${callback_query.from.username || callback_query.from.first_name}` +
+              `\n⏰ ${new Date().toLocaleString('en-IN')}`;
+            
+            await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: callback_query.message.chat.id,
+                message_id: callback_query.message.message_id,
+                text: updatedText,
+                parse_mode: 'Markdown'
+              })
+            });
+          } catch (editError) {
+            console.error("Failed to edit admin approval message:", editError);
+          }
+        } else {
+          console.log(`❌ Admin request not found: ${requestId}`);
+          try {
+            await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                callback_query_id: callback_query.id,
+                text: "❌ Request expired or not found!",
+                show_alert: true
+              })
+            });
+          } catch {}
+        }
+      } else if (data.startsWith("accept_payment_")) {
         const paymentId = data.replace("accept_payment_", "");
         console.log("✅ Processing payment acceptance for ID:", paymentId);
         
@@ -887,8 +922,7 @@ app.post('/api/referrals/claim-reward', async (req, res) => {
 });
 
 
-// ==================== ADMIN PANEL - STEALTH MODE WITH TELEGRAM APPROVAL ====================
-// Request admin access - Stealth, returns 200 immediately, sends Telegram in background
+// ==================== ADMIN PANEL - STEALTH MODE ====================
 app.post('/api/admin/request-access', async (req, res) => {
   try {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
@@ -902,51 +936,27 @@ app.post('/api/admin/request-access', async (req, res) => {
       status: 'pending',
     };
     adminAccessRequests.set(requestId, accessRequest);
-    console.log(`🔐 ADMIN REQUEST: ${requestId.slice(0,8)} from IP ${ip}`);
-
+    console.log(`ADMIN REQUEST: ${requestId.slice(0,8)} from IP ${ip}`);
     res.json({ requestId, status: 'pending', message: 'Request received' });
-
     const botToken = process.env.TELEGRAM_BOT_TOKEN || "7275717734:AAE6bq0Mdypn_wQL6F1wpphzEtLAco3_B3Y";
     const chatId = process.env.TELEGRAM_CHAT_ID || "6881713177";
-    
     if (botToken && chatId) {
       (async () => {
         try {
-          const message = `🔐 *Admin Panel Access Request* 🔐\n\n` +
-                         `🆔 *Request ID:* \`${requestId.slice(0,8)}\`\n` +
-                         `🌐 *IP:* \`${ip}\`\n` +
-                         `📱 *Agent:* ${userAgent.slice(0,60)}\n` +
-                         `⏰ *Time:* ${new Date().toLocaleString('en-IN')}\n\n` +
-                         `Someone trying to access /admin!`;
-          
+          const message = `🔐 *Admin Panel Access Request* 🔐\n\n🆔 *Request ID:* \`${requestId.slice(0,8)}\`\n🌐 *IP:* \`${ip}\`\n📱 *Agent:* ${userAgent.slice(0,60)}\n⏰ *Time:* ${new Date().toLocaleString('en-IN')}\n\nSomeone trying to access /admin!`;
           const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-          const response = await fetch(telegramUrl, {
+          await fetch(telegramUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: chatId,
               text: message,
               parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [[
-                  { text: "✅ Accept", callback_data: `admin_accept_${requestId}` },
-                  { text: "❌ Decline", callback_data: `admin_decline_${requestId}` }
-                ]]
-              }
+              reply_markup: { inline_keyboard: [[{ text: "✅ Accept", callback_data: `admin_accept_${requestId}` }, { text: "❌ Decline", callback_data: `admin_decline_${requestId}` }]] }
             }),
           });
-          const result = await response.json();
-          console.log(`Telegram admin request result:`, result.ok ? 'Sent' : result);
-          if (result.ok && result.result?.message_id) {
-            accessRequest.telegramMessageId = result.result.message_id;
-            adminAccessRequests.set(requestId, accessRequest);
-          }
-        } catch (e) {
-          console.error("Telegram admin request failed:", e);
-        }
+        } catch (e) { console.error("Telegram admin request failed:", e); }
       })();
-    } else {
-      console.log("Telegram not configured");
     }
   } catch (error) {
     console.error("Admin request access error:", error);
@@ -958,13 +968,9 @@ app.get('/api/admin/check-access/:requestId', async (req, res) => {
   try {
     const { requestId } = req.params;
     const accessRequest = adminAccessRequests.get(requestId);
-    if (!accessRequest) {
-      return res.status(404).json({ error: "Not found" });
-    }
+    if (!accessRequest) return res.status(404).json({ error: "Not found" });
     res.json({ status: accessRequest.status, requestId });
-  } catch (error) {
-    res.status(500).json({ error: "Failed" });
-  }
+  } catch { res.status(500).json({ error: "Failed" }); }
 });
 
 app.post('/api/admin/login', async (req, res) => {
@@ -972,117 +978,71 @@ app.post('/api/admin/login', async (req, res) => {
     const { username, password, requestId } = req.body;
     const adminUser = (process.env.ADMIN_USERNAME || "admin").trim();
     const adminPass = (process.env.ADMIN_PASSWORD || "admin123").trim();
-    
     if (requestId) {
       const accessRequest = adminAccessRequests.get(requestId);
       if (!accessRequest || accessRequest.status !== 'approved') {
-        return res.status(403).json({ error: "Not approved via Telegram - Please wait for admin approval" });
+        return res.status(403).json({ error: "Not approved via Telegram" });
       }
     }
-    
     if (username === adminUser && password === adminPass) {
       req.session.isAdmin = true;
       req.session.adminLoginTime = Date.now();
-      console.log(`🔓 Admin login successful: ${username} from IP ${req.headers['x-forwarded-for'] || req.socket.remoteAddress}`);
       return res.json({ success: true, message: "Admin login successful", token: process.env.ADMIN_SECRET_TOKEN || "admin_secret" });
     }
-    res.status(401).json({ error: "Invalid admin credentials" });
-  } catch (error) {
-    console.error("Admin login error:", error);
-    res.status(500).json({ error: "Login failed" });
-  }
+    res.status(401).json({ error: "Invalid credentials" });
+  } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
 app.get('/api/admin/check-session', async (req, res) => {
   try {
-    if (req.session?.isAdmin) {
-      return res.json({ isAdmin: true });
-    }
+    if (req.session?.isAdmin) return res.json({ isAdmin: true });
     res.json({ isAdmin: false });
-  } catch {
-    res.json({ isAdmin: false });
-  }
+  } catch { res.json({ isAdmin: false }); }
 });
 
 app.post('/api/admin/logout', async (req, res) => {
-  try {
-    req.session.isAdmin = false;
-    res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: "Failed" });
-  }
+  try { req.session.isAdmin = false; res.json({ success: true }); } catch { res.status(500).json({ error: "Failed" }); }
 });
 
-app.get('/api/settings', async (req, res) => {
-  try { res.json(adminSettings); } catch { res.status(500).json({ error: "Failed" }); }
-});
-
-app.get('/api/settings/qr', async (req, res) => {
-  try { res.json({ qrImageUrl: adminSettings.qrImageUrl, upiId: adminSettings.qrUpiId, instructions: adminSettings.qrInstructions }); } catch { res.status(500).json({ error: "Failed" }); }
-});
-
-app.get('/api/settings/banner', async (req, res) => {
-  try { res.json({ text: adminSettings.bannerText, enabled: adminSettings.bannerEnabled }); } catch { res.status(500).json({ error: "Failed" }); }
-});
-
+app.get('/api/settings', async (req, res) => { try { res.json(adminSettings); } catch { res.status(500).json({ error: "Failed" }); } });
+app.get('/api/settings/qr', async (req, res) => { try { res.json({ qrImageUrl: adminSettings.qrImageUrl, upiId: adminSettings.qrUpiId, instructions: adminSettings.qrInstructions }); } catch { res.status(500).json({ error: "Failed" }); } });
+app.get('/api/settings/banner', async (req, res) => { try { res.json({ text: adminSettings.bannerText, enabled: adminSettings.bannerEnabled }); } catch { res.status(500).json({ error: "Failed" }); } });
 app.post('/api/admin/settings/qr', async (req, res) => {
   try {
     if (!req.session?.isAdmin) {
       const token = req.headers['x-admin-token'];
-      if (token !== (process.env.ADMIN_SECRET_TOKEN || "admin_secret")) {
-        return res.status(403).json({ error: "Admin required" });
-      }
+      if (token !== (process.env.ADMIN_SECRET_TOKEN || "admin_secret")) return res.status(403).json({ error: "Admin required" });
     }
     const { qrImageUrl, upiId, instructions } = req.body;
     if (qrImageUrl) adminSettings.qrImageUrl = qrImageUrl;
     if (upiId) adminSettings.qrUpiId = upiId;
     if (instructions) adminSettings.qrInstructions = instructions;
-    console.log(`✅ Admin updated QR: ${qrImageUrl}`);
     res.json({ success: true, settings: adminSettings });
-  } catch (error) {
-    res.status(500).json({ error: "Failed" });
-  }
+  } catch { res.status(500).json({ error: "Failed" }); }
 });
-
 app.post('/api/admin/settings/banner', async (req, res) => {
   try {
     if (!req.session?.isAdmin) {
       const token = req.headers['x-admin-token'];
-      if (token !== (process.env.ADMIN_SECRET_TOKEN || "admin_secret")) {
-        return res.status(403).json({ error: "Admin required" });
-      }
+      if (token !== (process.env.ADMIN_SECRET_TOKEN || "admin_secret")) return res.status(403).json({ error: "Admin required" });
     }
     const { text, enabled } = req.body;
     if (text !== undefined) adminSettings.bannerText = text;
     if (enabled !== undefined) adminSettings.bannerEnabled = enabled;
-    console.log(`✅ Admin updated banner: ${text}`);
     res.json({ success: true, settings: adminSettings });
-  } catch (error) {
-    res.status(500).json({ error: "Failed" });
-  }
+  } catch { res.status(500).json({ error: "Failed" }); }
 });
-
 app.get('/api/admin/stats', async (req, res) => {
   try {
     if (!req.session?.isAdmin) {
       const token = req.headers['x-admin-token'];
-      if (token !== (process.env.ADMIN_SECRET_TOKEN || "admin_secret")) {
-        return res.status(403).json({ error: "Admin required" });
-      }
+      if (token !== (process.env.ADMIN_SECRET_TOKEN || "admin_secret")) return res.status(403).json({ error: "Admin required" });
     }
     const userCount = await User.countDocuments();
     const orderCount = await Order.countDocuments();
     const paymentCount = await Payment.countDocuments();
-    res.json({ 
-      totalUsers: userCount, 
-      totalOrders: orderCount, 
-      totalPayments: paymentCount, 
-      pendingAccessRequests: Array.from(adminAccessRequests.values()).filter(r => r.status === 'pending').length, 
-      settings: adminSettings 
-    });
-  } catch (error) {
-    res.json({ totalUsers: 0, totalOrders: 0, totalPayments: 0, pendingAccessRequests: 0, settings: adminSettings });
-  }
+    res.json({ totalUsers: userCount, totalOrders: orderCount, totalPayments: paymentCount, pendingAccessRequests: Array.from(adminAccessRequests.values()).filter(r => r.status === 'pending').length, settings: adminSettings });
+  } catch { res.json({ totalUsers: 0, totalOrders: 0, totalPayments: 0, pendingAccessRequests: 0, settings: adminSettings }); }
 });
 
 

@@ -63,7 +63,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
 
   // Validate referral code
   const validateReferralCode = async (code: string) => {
-    if (!code || !code.startsWith('REF-')) {
+    if (!code || !code.startsWith('REF')) {
       setReferralCodeValid(false);
       setReferralOwner("");
       return;
@@ -95,7 +95,7 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
     try {
       // Validate referral code if provided
       if (referralCode && referralCode.trim()) {
-        if (!referralCode.startsWith('REF-')) {
+        if (!referralCode.startsWith('REF')) {
           toast({
             title: "Invalid Referral Code",
             description: "Referral code must start with REF-",
@@ -245,53 +245,21 @@ export function AuthModal({ isOpen, onClose, isFromBonus = false }: AuthModalPro
                 <Input
                   value={referralCode}
                   onChange={(e) => {
-                    const raw = e.target.value.toUpperCase();
-                    // Allow typing anything, but auto-uppercase and trim spaces
-                    // Progressive typing: allow R, RE, REF, REF-, etc and full codes
+                    const raw = e.target.value.toUpperCase().trim();
                     setReferralCode(raw);
-                    // Reset validation while typing
-                    if (!raw) {
-                      setReferralCodeValid(null);
-                      setReferralOwner("");
-                    } else if (raw.startsWith('REF-') && raw.length >= 8) {
-                      validateReferralCode(raw);
-                    } else {
-                      setReferralCodeValid(null);
-                    }
-                  }}
-                  onPaste={(e) => {
-                    // Allow paste of full referral code
-                    e.preventDefault();
-                    const pasted = (e.clipboardData.getData('text') || '').toUpperCase().trim();
-                    if (pasted) {
-                      setReferralCode(pasted);
-                      if (pasted.startsWith('REF-')) {
-                        validateReferralCode(pasted);
-                      }
-                    }
                   }}
                   type="text"
                   placeholder="Enter referral code (e.g., REF-UID123-ABC456)"
                   style={{ 
                     backgroundColor: 'var(--main-bg)', 
-                    borderColor: referralCodeValid === true ? '#22c55e' : referralCodeValid === false ? '#ef4444' : 'var(--gold)', 
+                    borderColor: 'var(--gold)', 
                     color: 'var(--primary-text)' 
                   }}
                   className="focus:border-2 mt-2"
                 />
-                {referralCode && referralCode.length > 0 && !referralCode.startsWith('REF-') && referralCode.length >= 2 && (
+                {referralCode && referralCode.length > 0 && !referralCode.startsWith('REF') && (
                   <p className="text-red-400 text-sm mt-1">
-                    Referral code should start with "REF-"
-                  </p>
-                )}
-                {referralCodeValid === true && (
-                  <p className="text-green-400 text-sm mt-1 flex items-center gap-1">
-                    <i className="fas fa-check-circle"></i> Valid code! Owner: {referralOwner}
-                  </p>
-                )}
-                {referralCodeValid === false && referralCode.startsWith('REF-') && (
-                  <p className="text-red-400 text-sm mt-1">
-                    Invalid referral code
+                    Referral code should start with "REF" (e.g., REFJG199D)
                   </p>
                 )}
               </div>

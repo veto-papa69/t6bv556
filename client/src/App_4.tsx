@@ -22,6 +22,11 @@ import ShippingPolicy from "@/pages/shipping";
 import Contact from "@/pages/contact";
 import About from "@/pages/about";
 import NotFound from "@/pages/not-found";
+import AdminAccessRequest from "@/pages/admin/access-request";
+import AdminLogin from "@/pages/admin/login";
+import AdminDashboard from "@/pages/admin/dashboard";
+import AdminQR from "@/pages/admin/qr";
+import AdminBanner from "@/pages/admin/banner";
 import { Suspense } from "react";
 
 function Router() {
@@ -44,6 +49,11 @@ function Router() {
         <Route path="/delivery" component={ShippingPolicy} />
         <Route path="/contact" component={Contact} />
         <Route path="/about" component={About} />
+        <Route path="/admin" component={AdminAccessRequest} />
+        <Route path="/admin/login" component={AdminLogin} />
+        <Route path="/admin/dashboard" component={AdminDashboard} />
+        <Route path="/admin/qr" component={AdminQR} />
+        <Route path="/admin/banner" component={AdminBanner} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
@@ -56,9 +66,7 @@ function App() {
       <TooltipProvider>
         <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--main-bg)' }}>
           <Navbar />
-          <main className="flex-1">
-            <Router />
-          </main>
+          <main className="flex-1"><Router /></main>
           <Footer />
           <Toaster />
         </div>
