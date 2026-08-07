@@ -22,19 +22,12 @@ import ShippingPolicy from "@/pages/shipping";
 import Contact from "@/pages/contact";
 import About from "@/pages/about";
 import NotFound from "@/pages/not-found";
-// Admin Panel - Hidden, not in navbar, only via /admin direct URL
-import AdminAccessRequest from "@/pages/admin/access-request";
-import AdminLogin from "@/pages/admin/login";
-import AdminDashboard from "@/pages/admin/dashboard";
-import AdminQR from "@/pages/admin/qr";
-import AdminBanner from "@/pages/admin/banner";
 import { Suspense } from "react";
 
 function Router() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center pt-20" style={{ backgroundColor: 'var(--main-bg)', color: 'var(--gold)' }}><div className="text-center"><i className="fas fa-spinner fa-spin text-3xl mb-3"></i><p>Loading...</p></div></div>}>
       <Switch>
-        {/* User Routes */}
         <Route path="/" component={Home} />
         <Route path="/services" component={Services} />
         <Route path="/services-discount" component={ServicesDiscount} />
@@ -51,12 +44,6 @@ function Router() {
         <Route path="/delivery" component={ShippingPolicy} />
         <Route path="/contact" component={Contact} />
         <Route path="/about" component={About} />
-        {/* Admin Panel - Hidden, Super Secure with Telegram Approval */}
-        <Route path="/admin" component={AdminAccessRequest} />
-        <Route path="/admin/login" component={AdminLogin} />
-        <Route path="/admin/dashboard" component={AdminDashboard} />
-        <Route path="/admin/qr" component={AdminQR} />
-        <Route path="/admin/banner" component={AdminBanner} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

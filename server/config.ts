@@ -12,7 +12,6 @@ export const ADMIN_CONFIG = {
   SECRET_TOKEN: process.env.ADMIN_SECRET_TOKEN || "admin_secret_token_2024",
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
   TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
-  // Enable Telegram approval - if false, direct login allowed
   REQUIRE_TELEGRAM_APPROVAL: process.env.REQUIRE_TELEGRAM_APPROVAL !== "false",
 };
 
