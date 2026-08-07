@@ -33,6 +33,8 @@ const paymentSchema = z.object({
 type PaymentForm = z.infer<typeof paymentSchema>;
 
 export default function AddFunds() {
+  const [qrSettings, setQrSettings] = useState({ qrImageUrl: "", upiId: "", instructions: "" });
+  useEffect(() => { fetch("/api/settings/qr").then(r => r.json()).then(d => setQrSettings(d)).catch(() => {}); }, []);
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -90,11 +92,7 @@ export default function AddFunds() {
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gold mb-6">Scan QR Code to Pay</h2>
             <div className="inline-block p-4 bg-white rounded-xl">
-              <img 
-                src="https://files.catbox.moe/8ljrzr.png" 
-                alt="UPI QR Code for payment" 
-                className="w-48 h-48 object-contain"
-              />
+              <img src={qrSettings.qrImageUrl || "https://via.placeholder.com/300?text=QR"} alt="UPI QR Code for payment" className="w-64 h-64 mx-auto object-contain bg-white p-2 rounded-xl" />
             </div>
             <p className="text-cream/60 mt-4">Pay using any UPI app (PhonePe, GPay, Paytm, etc.)</p>
           </div>
